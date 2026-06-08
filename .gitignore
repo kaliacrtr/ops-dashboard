@@ -1,0 +1,13 @@
+# Credentials — never commit
+.env
+*.env
+
+# Runtime data — local only (each user gets their own)
+expenses.json
+subscriptions.json
+
+# Dependencies
+node_modules/
+
+# OS
+.DS_Store

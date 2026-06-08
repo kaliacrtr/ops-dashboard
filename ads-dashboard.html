@@ -1,0 +1,2131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bodycon the Brand — Ops Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --black: #0a0a0a;
+      --white: #ffffff;
+      --gray-100: #f5f5f5;
+      --gray-200: #e8e8e8;
+      --gray-300: #d1d1d1;
+      --gray-500: #6b6b6b;
+      --gray-700: #3d3d3d;
+      --green: #008060;
+      --green-bg: #e3f4ef;
+      --green-border: #95c9b4;
+      --yellow: #b25a00;
+      --yellow-bg: #fff5e0;
+      --yellow-border: #f0c060;
+      --red: #c0392b;
+      --red-bg: #fdf0ee;
+      --red-border: #e8a8a2;
+      --blue: #0066cc;
+      --blue-bg: #e8f0fb;
+      --radius: 10px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--gray-100);
+      color: var(--black);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* Header */
+    header {
+      background: var(--black);
+      color: var(--white);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-brand { font-size: 14px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .header-right { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .header-timestamp { font-size: 11px; color: #888; }
+    .btn { background: #1a1a1a; border: 1px solid #333; color: var(--white); font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 6px; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
+    .btn:hover { background: #2a2a2a; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Controls */
+    .controls-bar {
+      background: var(--white);
+      border-bottom: 1px solid var(--gray-200);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .ctrl { display: flex; align-items: center; gap: 8px; }
+    .ctrl label { font-size: 12px; font-weight: 600; color: var(--gray-700); white-space: nowrap; }
+    .ctrl select, .ctrl input[type="date"] {
+      border: 1px solid var(--gray-300); border-radius: 6px; padding: 6px 10px;
+      font-size: 13px; outline: none; background: var(--white); transition: border-color 0.15s;
+    }
+    .ctrl select:focus, .ctrl input:focus { border-color: var(--black); }
+    .ctrl-divider { width: 1px; height: 24px; background: var(--gray-200); }
+
+    /* Layout */
+    main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 60px; }
+    section { margin-bottom: 36px; }
+    .section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gray-500); margin-bottom: 14px; }
+    .section-title .section-sub { font-weight: 400; text-transform: none; letter-spacing: 0; }
+
+    /* State cards */
+    .state-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 40px 24px; text-align: center; box-shadow: var(--shadow); }
+    .state-icon { font-size: 28px; margin-bottom: 12px; }
+    .state-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+    .state-desc { font-size: 13px; color: var(--gray-500); max-width: 440px; margin: 0 auto; line-height: 1.6; }
+    .state-desc code { background: var(--gray-100); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; }
+    .spinner { width: 28px; height: 28px; border: 3px solid var(--gray-200); border-top-color: var(--black); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 14px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Grids */
+    .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 12px; }
+    .grid-5 { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 12px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 520px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    /* Metric cards */
+    .metric-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); }
+    .metric-card.shopify-card { border-top: 2px solid var(--green); }
+    .metric-card.roas-card    { border-top: 2px solid var(--black); }
+    .m-label { font-size: 11px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .m-source { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+    .src-meta     { background: #e8f0fb; color: #0066cc; }
+    .src-shopify  { background: #e3f4ef; color: #008060; }
+    .src-combined { background: #f0e8ff; color: #6600cc; }
+    .src-klaviyo  { background: #fce8f3; color: #a01060; }
+    .m-value { font-size: 28px; font-weight: 700; line-height: 1.1; color: var(--black); }
+    .m-value.green  { color: var(--green); }
+    .m-value.yellow { color: var(--yellow); }
+    .m-value.red    { color: var(--red); }
+    .m-sub { font-size: 12px; color: var(--gray-500); margin-top: 4px; }
+
+    /* Health */
+    .health-bar { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 16px 20px; display: flex; align-items: center; gap: 14px; box-shadow: var(--shadow); flex-wrap: wrap; }
+    .health-dot { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; }
+    .health-dot.green  { background: var(--green); }
+    .health-dot.yellow { background: #f0a500; }
+    .health-dot.red    { background: var(--red); }
+    .health-label { font-weight: 700; font-size: 14px; }
+    .health-label.green  { color: var(--green); }
+    .health-label.yellow { color: var(--yellow); }
+    .health-label.red    { color: var(--red); }
+    .health-desc { font-size: 13px; color: var(--gray-700); }
+
+    /* Best/Worst */
+    .bw-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow); }
+    .bw-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 8px; border-radius: 20px; display: inline-block; margin-bottom: 8px; }
+    .bw-card.best  .bw-tag { background: var(--green-bg); color: var(--green); }
+    .bw-card.worst .bw-tag { background: var(--red-bg); color: var(--red); }
+    .bw-name { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .bw-stats { font-size: 12px; color: var(--gray-500); }
+    .bw-stats span { display: inline-block; margin-right: 14px; }
+    .bw-note { font-size: 12px; color: var(--gray-500); margin-top: 6px; }
+
+    /* Shopify notice */
+    .notice-bar { background: var(--yellow-bg); border: 1px solid var(--yellow-border); border-radius: var(--radius); padding: 14px 18px; font-size: 13px; color: var(--yellow); }
+    .notice-bar strong { color: var(--black); }
+    .notice-bar code { font-family: monospace; font-size: 12px; background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 3px; }
+
+    /* Ad cards */
+    .ads-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+    .ad-card { background: var(--white); border-radius: var(--radius); border: 1px solid var(--gray-200); border-top: 3px solid var(--gray-300); padding: 18px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 12px; }
+    .ad-card.green    { border-top-color: var(--green); }
+    .ad-card.yellow   { border-top-color: #f0a500; }
+    .ad-card.red      { border-top-color: var(--red); }
+    .ad-card.inactive { opacity: 0.55; }
+
+    .ad-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .ad-name { font-size: 15px; font-weight: 700; }
+    .ad-status { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
+    .status-active   { background: var(--green-bg); color: var(--green); }
+    .status-inactive { background: var(--gray-200); color: var(--gray-500); }
+
+    .ad-metrics { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .ad-metric { text-align: center; }
+    .ad-metric .mv { font-size: 16px; font-weight: 700; }
+    .ad-metric .ml { font-size: 10px; color: var(--gray-500); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    .ad-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .ad-row-item { background: var(--gray-100); border-radius: 6px; padding: 7px 10px; }
+    .rl { font-size: 10px; color: var(--gray-500); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    .rv { font-size: 14px; font-weight: 700; margin-top: 1px; }
+
+    .ad-rankings { display: flex; gap: 6px; flex-wrap: wrap; }
+    .rbadge { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 12px; border: 1px solid var(--gray-300); color: var(--gray-700); text-transform: capitalize; }
+    .rbadge.above   { background: var(--green-bg); border-color: var(--green-border); color: var(--green); }
+    .rbadge.average { background: var(--yellow-bg); border-color: var(--yellow-border); color: var(--yellow); }
+    .rbadge.below   { background: var(--red-bg); border-color: var(--red-border); color: var(--red); }
+
+    .ad-reco { background: var(--gray-100); border-radius: 7px; padding: 10px 12px; font-size: 12px; color: var(--gray-700); line-height: 1.6; }
+    .reco-action { font-weight: 700; color: var(--black); }
+
+    /* Insights */
+    .insights-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+    .insight-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+    .insight-card h3 { font-size: 13px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .i-icon { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
+    .i-green { background: var(--green-bg); }
+    .i-red   { background: var(--red-bg); }
+    .i-blue  { background: var(--blue-bg); }
+    .insight-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .insight-list li { font-size: 13px; color: var(--gray-700); padding-left: 16px; position: relative; line-height: 1.55; }
+    .insight-list li::before { content: ""; position: absolute; left: 0; top: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--gray-300); }
+    .insight-card.working   .insight-list li::before { background: var(--green); }
+    .insight-card.problems  .insight-list li::before { background: var(--red); }
+    .insight-card.nextsteps .insight-list li::before { background: var(--blue); }
+
+    .i-amber { background: #fef3c7; }
+    .insight-card.flagged .insight-list li::before { background: #f59e0b; }
+
+    /* Tabs */
+    .tab-bar { background: var(--white); border-bottom: 1px solid var(--gray-200); padding: 0 24px; display: flex; gap: 0; }
+    .tab-btn { background: none; border: none; border-bottom: 2px solid transparent; padding: 12px 18px; font-size: 13px; font-weight: 600; color: var(--gray-500); cursor: pointer; transition: color 0.15s, border-color 0.15s; white-space: nowrap; }
+    .tab-btn:hover { color: var(--black); }
+    .tab-btn.active { color: var(--black); border-bottom-color: var(--black); }
+
+    /* Trends */
+    .changes-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 36px; }
+    .change-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
+    .change-label { font-size: 10px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+    .change-value { font-size: 22px; font-weight: 700; }
+    .change-delta { font-size: 12px; font-weight: 600; margin-top: 4px; }
+    .delta-up   { color: var(--green); }
+    .delta-down { color: var(--red); }
+    .delta-neutral { color: var(--gray-500); }
+
+    .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 16px; }
+    @media (max-width: 520px) { .charts-grid { grid-template-columns: 1fr; } }
+    .chart-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+    .chart-title { font-size: 12px; font-weight: 700; color: var(--gray-700); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 16px; }
+
+    /* Email tab */
+    .email-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .email-table th { text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gray-500); padding: 8px 12px; border-bottom: 2px solid var(--gray-200); }
+    .email-table td { padding: 10px 12px; border-bottom: 1px solid var(--gray-200); color: var(--gray-700); vertical-align: middle; }
+    .email-table tr:last-child td { border-bottom: none; }
+    .email-table tr:hover td { background: var(--gray-100); }
+    .status-badge { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 2px 8px; border-radius: 20px; }
+    .status-sent      { background: var(--green-bg);  color: var(--green); }
+    .status-draft     { background: var(--gray-200);  color: var(--gray-500); }
+    .status-scheduled { background: var(--blue-bg);   color: var(--blue); }
+    .status-cancelled { background: var(--red-bg);    color: var(--red); }
+
+    /* P&L tab */
+    .goal-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 24px 28px; box-shadow: var(--shadow); }
+
+    /* AI Recommendations */
+    .ai-section-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+    .ai-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; background: #f0e8ff; color: #5a00c8; padding: 3px 9px; border-radius: 20px; }
+    .ai-refresh-btn { font-size: 12px; font-weight: 600; background: var(--white); border: 1px solid var(--gray-300); border-radius: 6px; padding: 6px 14px; cursor: pointer; color: var(--black); transition: background 0.15s; }
+    .ai-refresh-btn:hover { background: var(--gray-100); }
+    .ai-refresh-btn:disabled { opacity: 0.5; cursor: default; }
+    .rec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+    .rec-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 20px 22px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 10px; }
+    .rec-card-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .rec-focus-badge { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 8px; border-radius: 3px; }
+    .rec-focus-revenue { background: #e6f7f0; color: #006644; }
+    .rec-focus-ads     { background: #e8f0fe; color: #1a56c4; }
+    .rec-focus-email   { background: #fce8f3; color: #a01060; }
+    .rec-focus-content { background: #fff3e0; color: #b35a00; }
+    .rec-focus-expenses{ background: #f5f0ff; color: #5a00c8; }
+    .rec-focus-product { background: #f0fffe; color: #006b7a; }
+    .rec-impact-badge  { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 8px; border-radius: 3px; margin-left: auto; }
+    .rec-impact-high   { background: #ffeaea; color: #c0392b; }
+    .rec-impact-medium { background: #fff8e0; color: #9a6000; }
+    .rec-impact-low    { background: var(--gray-100); color: var(--gray-500); }
+    .rec-action { font-size: 14px; font-weight: 700; color: var(--black); line-height: 1.4; }
+    .rec-why    { font-size: 13px; color: #3d3d3d; line-height: 1.5; }
+    .rec-math   { font-size: 12px; font-weight: 600; color: #5a00c8; background: #f0e8ff; padding: 7px 12px; border-radius: 6px; line-height: 1.4; }
+    .rec-book   { font-size: 11px; color: var(--gray-500); border-top: 1px solid var(--gray-200); padding-top: 8px; }
+    .rec-book strong { color: var(--black); }
+    .ai-loading { display: flex; align-items: center; gap: 10px; color: var(--gray-500); font-size: 13px; padding: 32px 0; }
+    .ai-spinner { width: 18px; height: 18px; border: 2px solid var(--gray-300); border-top-color: #5a00c8; border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .ai-error { color: var(--red); font-size: 13px; padding: 16px 0; }
+    .goal-bar-track { background: var(--gray-200); border-radius: 8px; height: 14px; width: 100%; overflow: hidden; margin: 10px 0 6px; }
+    .goal-bar-fill  { height: 100%; border-radius: 8px; transition: width 0.5s ease; }
+    .pnl-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .pnl-table th { text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gray-500); padding: 8px 12px; border-bottom: 2px solid var(--gray-200); }
+    .pnl-table td { padding: 9px 12px; border-bottom: 1px solid var(--gray-200); vertical-align: middle; }
+    .pnl-table .total-row td { border-top: 2px solid var(--gray-300); border-bottom: none; font-size: 14px; }
+    .expense-input { width: 110px; border: 1px solid var(--gray-300); border-radius: 6px; padding: 5px 8px; font-size: 13px; font-weight: 600; text-align: right; outline: none; background: var(--white); }
+    .expense-input:focus { border-color: var(--black); }
+    .auto-badge  { font-size: 9px; font-weight: 700; background: var(--blue-bg); color: var(--blue); padding: 1px 5px; border-radius: 3px; letter-spacing: 0.04em; text-transform: uppercase; vertical-align: middle; margin-left: 4px; }
+    .fixed-badge { font-size: 9px; font-weight: 700; background: #edf7ed; color: #2a7a2a; padding: 1px 5px; border-radius: 3px; letter-spacing: 0.04em; text-transform: uppercase; vertical-align: middle; margin-left: 4px; }
+    .est-badge   { font-size: 9px; font-weight: 700; background: #fff8e1; color: #a06000; padding: 1px 5px; border-radius: 3px; letter-spacing: 0.04em; text-transform: uppercase; vertical-align: middle; margin-left: 4px; }
+    .sub-detail  { font-size: 11px; color: var(--gray-500); margin-top: 1px; }
+    .subs-panel  { margin-top: 16px; border: 1px solid var(--gray-200); border-radius: var(--radius); overflow: hidden; background: var(--white); box-shadow: var(--shadow); }
+    .subs-panel-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--gray-100); border-bottom: 1px solid var(--gray-200); cursor: pointer; user-select: none; }
+    .subs-panel-header h4 { margin: 0; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--gray-500); }
+    .subs-panel-body  { padding: 12px 14px; }
+    .sub-row      { display: grid; grid-template-columns: 1fr 110px 60px 70px; gap: 6px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--gray-200); font-size: 13px; }
+    .sub-row:last-child { border-bottom: none; }
+    .sub-name-wrap .sub-name  { font-weight: 600; }
+    .sub-name-wrap .sub-cat   { font-size: 11px; color: var(--gray-500); }
+    .sub-amount-input { width: 70px; border: 1px solid var(--gray-300); border-radius: 5px; padding: 3px 6px; font-size: 13px; font-weight: 600; text-align: right; }
+    .add-sub-btn { display: inline-flex; align-items: center; gap: 4px; margin-top: 10px; padding: 6px 12px; border: 1px dashed var(--gray-300); border-radius: 6px; background: none; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--gray-500); }
+    .add-sub-btn:hover { border-color: var(--black); color: var(--black); }
+    .shipping-est-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--gray-200); font-size: 13px; }
+    .shipping-est-row label { font-weight: 600; flex: 1; }
+    .shipping-est-input { width: 65px; border: 1px solid var(--gray-300); border-radius: 6px; padding: 4px 7px; font-size: 13px; font-weight: 600; text-align: right; }
+    .pnl-two-col { display: grid; grid-template-columns: 1fr 250px; gap: 24px; align-items: start; }
+    @media (max-width: 700px) { .pnl-two-col { grid-template-columns: 1fr; } }
+
+    /* Inventory tab */
+    .inv-summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+    .inv-filter-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .inv-filter-btn { font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--gray-300); background: var(--white); cursor: pointer; transition: all 0.15s; color: var(--gray-500); }
+    .inv-filter-btn.active { background: var(--black); color: var(--white); border-color: var(--black); }
+    .inv-filter-btn.f-critical.active { background: var(--red); border-color: var(--red); }
+    .inv-filter-btn.f-reorder.active  { background: #b35a00; border-color: #b35a00; }
+    .inv-filter-btn.f-warn.active     { background: #9a6000; border-color: #9a6000; }
+    .inv-product-group { margin-bottom: 20px; background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+    .inv-product-header { padding: 10px 16px; background: var(--gray-100); border-bottom: 1px solid var(--gray-200); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--black); }
+    .inv-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .inv-table th { text-align: left; padding: 8px 12px; border-bottom: 2px solid var(--gray-200); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--gray-500); white-space: nowrap; }
+    .inv-table td { padding: 9px 12px; border-bottom: 1px solid var(--gray-200); vertical-align: middle; }
+    .inv-table tr:last-child td { border-bottom: none; }
+    .inv-table tr.row-critical td { background: #fff5f5; }
+    .inv-table tr.row-reorder td  { background: #fff8f0; }
+    .inv-table tr.row-stockout td { background: #ffeaea; }
+    .inv-status-badge { font-size: 9px; font-weight: 700; text-transform: uppercase; padding: 2px 7px; border-radius: 3px; letter-spacing: 0.04em; white-space: nowrap; }
+    .s-ok       { background: #e6f7f0; color: #006644; }
+    .s-warn     { background: #fff8e0; color: #9a6000; }
+    .s-reorder  { background: #fff0e0; color: #b35a00; }
+    .s-critical { background: #ffeaea; color: #c0392b; }
+    .s-stockout { background: #c0392b; color: #fff; }
+    .inv-days-num { font-weight: 700; }
+    .inv-days-crit { color: var(--red); }
+    .inv-days-warn { color: #b35a00; }
+    .inv-days-ok   { color: #006644; }
+    .lt-input { width: 54px; border: 1px solid var(--gray-300); border-radius: 5px; padding: 4px 6px; font-size: 12px; font-weight: 600; text-align: center; outline: none; background: var(--white); }
+    .lt-input:focus { border-color: var(--black); }
+    .inv-risk-badge { font-size: 9px; font-weight: 700; background: #fce8f3; color: #a01060; padding: 2px 6px; border-radius: 3px; margin-left: 4px; }
+    .inv-section { margin-bottom: 28px; }
+    .inv-rec-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 7px; }
+    .inv-rec-urgency { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 7px; border-radius: 3px; display: inline-block; }
+    .u-critical { background: #ffeaea; color: #c0392b; }
+    .u-high     { background: #fff0e0; color: #b35a00; }
+    .u-medium   { background: #fff8e0; color: #9a6000; }
+    .u-low      { background: var(--gray-100); color: var(--gray-500); }
+    .inv-rec-msg  { font-size: 13px; line-height: 1.5; color: #3d3d3d; }
+    .inv-rec-book { font-size: 11px; color: var(--gray-500); }
+    .no-velocity  { color: var(--gray-500); font-style: italic; font-size: 11px; }
+
+    footer { text-align: center; padding: 24px; font-size: 11px; color: var(--gray-500); border-top: 1px solid var(--gray-200); margin-top: 8px; }
+
+    @media (max-width: 600px) {
+      header { padding: 12px 16px; }
+      main { padding: 16px 12px 40px; }
+      .m-value { font-size: 22px; }
+      .controls-bar { padding: 10px 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-brand">Bodycon the Brand</div>
+  <div class="header-right">
+    <span class="header-timestamp" id="timestamp">—</span>
+    <button class="btn" id="refreshBtn">↻ Refresh</button>
+  </div>
+</header>
+
+<div class="controls-bar">
+  <div class="ctrl">
+    <label for="datePreset">Period</label>
+    <select id="datePreset" onchange="onPresetChange()">
+      <option value="last_7d">Last 7 days</option>
+      <option value="last_14d">Last 14 days</option>
+      <option value="last_30d" selected>Last 30 days</option>
+      <option value="this_month">This month</option>
+      <option value="last_month">Last month</option>
+      <option value="custom">Custom range…</option>
+    </select>
+  </div>
+  <div class="ctrl" id="customRange" style="display:none;">
+    <label for="sinceDate">From</label>
+    <input type="date" id="sinceDate" />
+    <label for="untilDate">To</label>
+    <input type="date" id="untilDate" />
+    <button class="btn" onclick="currentTab==='ads'?(adsData=null,loadAds()):(overviewData=null,loadOverview())" style="padding:6px 12px;">Apply</button>
+  </div>
+</div>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('overview', this)">Overview</button>
+  <button class="tab-btn" onclick="switchTab('ads', this)">Ads</button>
+  <button class="tab-btn" onclick="switchTab('email', this)">Email</button>
+  <button class="tab-btn" onclick="switchTab('pnl', this)">P&amp;L</button>
+  <button class="tab-btn" onclick="switchTab('inventory', this)">Inventory</button>
+</div>
+
+<main id="main">
+  <div class="state-card">
+    <div class="spinner"></div>
+    <div class="state-title">Loading your data…</div>
+    <div class="state-desc">Fetching live data from Meta Ads and Shopify.</div>
+  </div>
+</main>
+
+<footer>Bodycon the Brand &nbsp;·&nbsp; Meta + Shopify + Klaviyo Live Dashboard</footer>
+
+<script>
+function onPresetChange() {
+  const val = document.getElementById('datePreset').value;
+  document.getElementById('customRange').style.display = val === 'custom' ? 'flex' : 'none';
+  if (val !== 'custom') {
+    if (currentTab === 'ads') { adsData = null; loadAds(); }
+    else { overviewData = null; loadOverview(); }
+  }
+}
+
+// Formatters
+const f$  = n => n != null ? '$' + parseFloat(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+const fN  = n => n != null ? parseInt(n).toLocaleString('en-US') : '—';
+const fPct = n => n != null ? parseFloat(n).toFixed(2) + '%' : '—';
+const fR  = n => n != null ? parseFloat(n).toFixed(2) + 'x' : '—';
+
+function roasClass(r) {
+  if (r == null) return '';
+  return r >= 3 ? 'green' : r >= 1.5 ? 'yellow' : 'red';
+}
+
+
+function renderMetaSummary(s, range) {
+  const sub = range ? range.since + ' → ' + range.until : '';
+  return `
+  <section>
+    <div class="section-title">Meta Ads Summary <span class="section-sub">${sub ? '· ' + sub : ''}</span></div>
+    <div class="grid-4">
+      <div class="metric-card">
+        <div class="m-label">Total Spend <span class="m-source src-meta">Meta</span></div>
+        <div class="m-value">${f$(s.totalSpend)}</div>
+        <div class="m-sub">Across all active ads</div>
+      </div>
+      <div class="metric-card">
+        <div class="m-label">Purchases (Pixel) <span class="m-source src-meta">Meta</span></div>
+        <div class="m-value">${s.totalPurchases}</div>
+        <div class="m-sub">Meta pixel-attributed</div>
+      </div>
+      <div class="metric-card">
+        <div class="m-label">Pixel Revenue <span class="m-source src-meta">Meta</span></div>
+        <div class="m-value">${s.totalPixelRevenue > 0 ? f$(s.totalPixelRevenue) : '—'}</div>
+        <div class="m-sub">${s.totalPixelRevenue > 0 ? 'From purchase pixel events' : 'No purchase value tracked'}</div>
+      </div>
+      <div class="metric-card">
+        <div class="m-label">Avg Cost / Purchase <span class="m-source src-meta">Meta</span></div>
+        <div class="m-value">${s.avgCpp ? f$(s.avgCpp) : '—'}</div>
+        <div class="m-sub">${s.totalPurchases > 0 ? s.totalPurchases + ' purchases tracked' : 'No purchases yet'}</div>
+      </div>
+    </div>
+  </section>`;
+}
+
+function renderStorePerf(shopify) {
+  const retPct   = (shopify.returnRate * 100).toFixed(1);
+  const retClass = shopify.returnRate > 0.15 ? 'red' : shopify.returnRate > 0.08 ? 'yellow' : 'green';
+  return `
+  <section>
+    <div class="section-title">Store Performance <span class="m-source src-shopify" style="font-size:10px;padding:2px 7px;border-radius:4px;vertical-align:middle;">Shopify</span></div>
+    <div class="grid-5">
+      <div class="metric-card shopify-card">
+        <div class="m-label">Orders <span class="m-source src-shopify">Shopify</span></div>
+        <div class="m-value">${fN(shopify.orderCount)}</div>
+        <div class="m-sub">Paid orders this period</div>
+      </div>
+      <div class="metric-card shopify-card">
+        <div class="m-label">Gross Revenue <span class="m-source src-shopify">Shopify</span></div>
+        <div class="m-value">${f$(shopify.grossRevenue)}</div>
+        <div class="m-sub">Before refunds</div>
+      </div>
+      <div class="metric-card shopify-card">
+        <div class="m-label">Net Revenue <span class="m-source src-shopify">Shopify</span></div>
+        <div class="m-value">${f$(shopify.netRevenue)}</div>
+        <div class="m-sub">${shopify.refundAmount > 0 ? f$(shopify.refundAmount) + ' refunded' : 'No refunds this period'}</div>
+      </div>
+      <div class="metric-card shopify-card">
+        <div class="m-label">AOV <span class="m-source src-shopify">Shopify</span></div>
+        <div class="m-value">${f$(shopify.aov)}</div>
+        <div class="m-sub">Average order value (net)</div>
+      </div>
+      <div class="metric-card shopify-card">
+        <div class="m-label">Return Rate <span class="m-source src-shopify">Shopify</span></div>
+        <div class="m-value ${retClass}">${retPct}%</div>
+        <div class="m-sub">${shopify.returnedOrderCount} of ${shopify.orderCount} orders refunded</div>
+      </div>
+    </div>
+  </section>`;
+}
+
+function renderShopifyNotice(shopify, shopifyStatus) {
+  const errMsg = shopify?.error ? ` <em style="font-weight:400;">(${shopify.error})</em>` : '';
+
+  // Credentials configured but OAuth not done yet — show Connect button
+  if (shopifyStatus?.credsConfigured && !shopifyStatus?.connected) {
+    return `
+    <section>
+      <div class="notice-bar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <span><strong>Shopify credentials found.</strong> Complete the one-time authorization to unlock real revenue, AOV, and return rate data.</span>
+        <a href="/shopify/auth" target="_blank" onclick="pollForShopifyConnect()" style="background:#0a0a0a;color:#fff;font-size:12px;font-weight:700;padding:8px 16px;border-radius:6px;text-decoration:none;white-space:nowrap;">Connect Shopify →</a>
+      </div>
+    </section>`;
+  }
+
+  // No credentials at all
+  return `
+  <section>
+    <div class="notice-bar">
+      <strong>Shopify not connected.</strong>${errMsg}
+      Run <code>bash setup.sh</code> to add your Client ID and Secret, then connect from the dashboard.
+    </div>
+  </section>`;
+}
+
+function renderRoas(metaSummary, combined, shopify) {
+  const storeRoas  = combined && shopify && shopify.configured ? combined.storeRoas : null;
+  const metaRoas   = combined ? combined.metaRoas : null;
+  const gapPct     = combined && combined.pixelGap != null ? (combined.pixelGap * 100).toFixed(0) + '% of orders not attributed to Meta' : null;
+  const cols       = storeRoas != null ? 'grid-3' : 'grid-2';
+
+  return `
+  <section>
+    <div class="section-title">ROAS Breakdown</div>
+    <div class="${cols}" style="max-width:700px;">
+      ${storeRoas != null ? `
+      <div class="metric-card roas-card">
+        <div class="m-label">Store ROAS <span class="m-source src-combined">Combined</span></div>
+        <div class="m-value ${roasClass(storeRoas)}">${fR(storeRoas)}</div>
+        <div class="m-sub">Shopify net revenue ÷ Meta spend</div>
+      </div>` : ''}
+      <div class="metric-card roas-card">
+        <div class="m-label">Meta-Attributed ROAS <span class="m-source src-meta">Meta</span></div>
+        <div class="m-value ${roasClass(metaRoas)}">${metaRoas ? fR(metaRoas) : '—'}</div>
+        <div class="m-sub">${metaRoas ? 'Pixel purchase value ÷ Meta spend' : 'No purchase value tracked in pixel'}</div>
+      </div>
+      <div class="metric-card roas-card">
+        <div class="m-label">Attribution Gap <span class="m-source src-combined">Combined</span></div>
+        <div class="m-value" style="font-size:18px;padding-top:6px;line-height:1.3;">${gapPct || '—'}</div>
+        <div class="m-sub">${gapPct ? 'Revenue not captured by Meta pixel' : 'Connect Shopify to see this'}</div>
+      </div>
+    </div>
+  </section>`;
+}
+
+function renderHealth(s) {
+  return `
+  <section>
+    <div class="section-title">Account Health</div>
+    <div class="health-bar">
+      <div class="health-dot ${s.healthScore}"></div>
+      <div>
+        <div class="health-label ${s.healthScore}">${s.healthLabel}</div>
+        <div class="health-desc">${s.healthDesc}</div>
+      </div>
+    </div>
+  </section>`;
+}
+
+function renderHighlights(best, worst) {
+  if (!best && !worst) return '';
+  const bestHtml = best ? `
+    <div class="bw-card best">
+      <div class="bw-tag">▲ Best Performer</div>
+      <div class="bw-name">${best.name}</div>
+      <div class="bw-stats">
+        <span>${best.purchases} purchase${best.purchases !== 1 ? 's' : ''}</span>
+        ${best.costPerPurchase ? `<span>${f$(best.costPerPurchase)} CPP</span>` : ''}
+        <span>${fPct(best.ctr)} CTR</span>
+      </div>
+      <div class="bw-note">${f$(best.spend)} spent · ${best.purchases > 0 ? 'Top converting ad' : 'Highest CTR of active ads'}</div>
+    </div>` : '';
+  const worstHtml = worst ? `
+    <div class="bw-card worst">
+      <div class="bw-tag">▼ Needs Review</div>
+      <div class="bw-name">${worst.name}</div>
+      <div class="bw-stats">
+        <span>${worst.purchases} purchases</span>
+        <span>${f$(worst.spend)} spent</span>
+        <span>${fPct(worst.ctr)} CTR</span>
+      </div>
+      <div class="bw-note">Lowest CTR among active ads with meaningful spend</div>
+    </div>` : '';
+  return `
+  <section>
+    <div class="section-title">Performance Highlights</div>
+    <div class="grid-2">${bestHtml}${worstHtml}</div>
+  </section>`;
+}
+
+function rankClass(r) {
+  if (!r) return '';
+  if (r.includes('above')) return 'above';
+  if (r === 'average' || r.includes('average')) return 'average';
+  return 'below';
+}
+
+function renderAdCards(ads) {
+  const cards = ads.map(ad => {
+    const rankings = [
+      ad.qualityRanking    ? `<span class="rbadge ${rankClass(ad.qualityRanking)}">Quality: ${ad.qualityRanking.replace(/_/g,' ')}</span>` : '',
+      ad.engagementRanking ? `<span class="rbadge ${rankClass(ad.engagementRanking)}">Engagement: ${ad.engagementRanking.replace(/_/g,' ')}</span>` : '',
+      ad.conversionRanking ? `<span class="rbadge ${rankClass(ad.conversionRanking)}">Conversion: ${ad.conversionRanking.replace(/_/g,' ')}</span>` : '',
+    ].filter(Boolean).join('');
+
+    const pixRow = ad.pixelRevenue > 0 ? `
+      <div class="ad-row-item">
+        <div class="rl">Pixel Revenue</div>
+        <div class="rv">${f$(ad.pixelRevenue)}</div>
+      </div>` : '';
+
+    return `
+    <div class="ad-card ${ad.color}">
+      <div class="ad-header">
+        <div class="ad-name">${ad.name}</div>
+        <span class="ad-status ${ad.status === 'active' ? 'status-active' : 'status-inactive'}">${ad.status}</span>
+      </div>
+      <div class="ad-metrics">
+        <div class="ad-metric">
+          <div class="mv">${f$(ad.spend)}</div>
+          <div class="ml">Spent</div>
+        </div>
+        <div class="ad-metric">
+          <div class="mv">${ad.purchases}</div>
+          <div class="ml">Purchases</div>
+        </div>
+        <div class="ad-metric">
+          <div class="mv">${ad.costPerPurchase ? f$(ad.costPerPurchase) : '—'}</div>
+          <div class="ml">Cost/Purchase</div>
+        </div>
+      </div>
+      <div class="ad-row">
+        <div class="ad-row-item"><div class="rl">CTR</div><div class="rv">${fPct(ad.ctr)}</div></div>
+        <div class="ad-row-item"><div class="rl">CPM</div><div class="rv">${f$(ad.cpm)}</div></div>
+        <div class="ad-row-item"><div class="rl">Link Clicks</div><div class="rv">${fN(ad.clicks)}</div></div>
+        <div class="ad-row-item"><div class="rl">Impressions</div><div class="rv">${fN(ad.impressions)}</div></div>
+        ${pixRow}
+      </div>
+      ${rankings ? `<div class="ad-rankings">${rankings}</div>` : ''}
+      <div class="ad-reco">
+        <span class="reco-action">${ad.recommendation.action}.</span> ${ad.recommendation.text}
+      </div>
+    </div>`;
+  });
+
+  return `
+  <section>
+    <div class="section-title">Per-Ad Breakdown</div>
+    <div class="ads-grid">${cards.join('')}</div>
+  </section>`;
+}
+
+function renderInsights(ins) {
+  const li = arr => arr.map(t => `<li>${t}</li>`).join('');
+  return `
+  <section>
+    <div class="section-title">Insights &amp; Action Plan</div>
+    <div class="insights-grid">
+      <div class="insight-card working">
+        <h3><span class="i-icon i-green">✓</span> What's Working</h3>
+        <ul class="insight-list">${li(ins.working)}</ul>
+      </div>
+      <div class="insight-card problems">
+        <h3><span class="i-icon i-red">!</span> Problems to Fix Now</h3>
+        <ul class="insight-list">${li(ins.problems)}</ul>
+      </div>
+      <div class="insight-card nextsteps">
+        <h3><span class="i-icon i-blue">→</span> Suggested Next Steps</h3>
+        <ul class="insight-list">${li(ins.nextsteps)}</ul>
+      </div>
+    </div>
+  </section>`;
+}
+
+// Poll for Shopify connection after user clicks "Connect Shopify"
+function pollForShopifyConnect() {
+  const interval = setInterval(async () => {
+    try {
+      const res  = await fetch('/api/shopify/status');
+      const data = await res.json();
+      if (data.connected) {
+        clearInterval(interval);
+        overviewData = null; loadOverview(); // re-render with Shopify data
+      }
+    } catch { /* ignore */ }
+  }, 2000); // check every 2s
+  // Stop polling after 3 minutes
+  setTimeout(() => clearInterval(interval), 3 * 60 * 1000);
+}
+
+function showLoading() {
+  document.getElementById('main').innerHTML = `
+    <div class="state-card">
+      <div class="spinner"></div>
+      <div class="state-title">Fetching live data…</div>
+      <div class="state-desc">Pulling from Meta Ads API and Shopify.</div>
+    </div>`;
+}
+
+function showError(msg, tokenExpired) {
+  if (tokenExpired) {
+    document.getElementById('main').innerHTML = `
+      <div class="state-card">
+        <div class="state-icon">🔑</div>
+        <div class="state-title">Meta Token Expired</div>
+        <div class="state-desc">
+          Your 60-day Meta access token has expired.<br><br>
+          1. Generate a new token in Meta Business Suite<br>
+          2. In your terminal, run:<br><br>
+          <code>bash update-token.sh</code><br><br>
+          Then restart: <code>node server.js</code>
+        </div>
+      </div>`;
+    return;
+  }
+  document.getElementById('main').innerHTML = `
+    <div class="state-card">
+      <div class="state-icon">⚠️</div>
+      <div class="state-title">Could not load data</div>
+      <div class="state-desc">
+        ${msg}<br><br>
+        Make sure the server is running: <code>node server.js</code>
+      </div>
+    </div>`;
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let currentTab          = 'overview';
+let overviewData        = null;   // { combined, pnlRes, trends }
+let adsData             = null;   // { combined, trends }
+let emailData           = null;
+let pnlData             = null;
+let recommendationsData = null;
+let inventoryData       = null;
+const charts            = {};
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(tab, btn) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (tab === 'overview') {
+    if (overviewData) renderOverview(overviewData); else loadOverview();
+  } else if (tab === 'ads') {
+    if (adsData) renderAds(adsData); else loadAds();
+  } else if (tab === 'email') {
+    if (emailData) renderEmail(emailData); else loadEmail();
+  } else if (tab === 'pnl') {
+    if (pnlData) renderPnl(pnlData); else loadPnl();
+  } else {
+    if (inventoryData) renderInventory(inventoryData); else loadInventory();
+  }
+}
+
+// Wire refresh button to current tab
+document.getElementById('refreshBtn').onclick = () => {
+  if (currentTab === 'overview') { overviewData = null; recommendationsData = null; loadOverview(); }
+  else if (currentTab === 'ads') { adsData = null; loadAds(); }
+  else if (currentTab === 'email') { emailData = null; loadEmail(); }
+  else if (currentTab === 'pnl') { pnlData = null; loadPnl(); }
+  else if (currentTab === 'inventory') { inventoryData = null; loadInventory(); }
+};
+
+// ── Overview fetch ────────────────────────────────────────────────────────────
+async function loadOverview() {
+  const btn = document.getElementById('refreshBtn');
+  btn.disabled = true; btn.textContent = '↻ Loading…';
+  showLoading();
+  try {
+    const preset = document.getElementById('datePreset').value;
+    let qs = '';
+    if (preset === 'custom') {
+      const since = document.getElementById('sinceDate').value;
+      const until = document.getElementById('untilDate').value;
+      if (!since || !until) { showError('Please select both a start and end date.'); return; }
+      qs = `?since=${since}&until=${until}`;
+    } else {
+      qs = `?date_preset=${preset}`;
+    }
+    const [combinedRes, pnlRes, trendsRes] = await Promise.all([
+      fetch('/api/combined' + qs).then(r => r.json()),
+      fetch('/api/pnl').then(r => r.json()),
+      fetch('/api/trends').then(r => r.json()),
+    ]);
+    if (!combinedRes.success) { showError(combinedRes.error || 'Unknown server error', combinedRes.tokenExpired); return; }
+    overviewData = { combined: combinedRes, pnlRes, trends: trendsRes };
+    renderOverview(overviewData);
+    document.getElementById('timestamp').textContent =
+      'Updated ' + new Date(combinedRes.fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (!recommendationsData) loadRecommendations();
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '↻ Refresh';
+  }
+}
+
+// ── Overview render ───────────────────────────────────────────────────────────
+function renderOverview(data) {
+  const { combined, pnlRes, trends } = data;
+  const goal = pnlRes?.goal;
+  const revenue = pnlRes?.revenue;
+  const mp = revenue?.monthPace;
+  const shopifyConnected = pnlRes?.shopifyConnected;
+  const barColor = goal?.paceStatus === 'ahead' ? 'var(--green)' : goal?.paceStatus === 'close' ? '#f0a500' : 'var(--red)';
+  const monthPct = revenue?.thisMonth ? (revenue.thisMonth.netRevenue / goal.monthlyTarget * 100) : 0;
+  const currentMonth = pnlRes?.currentMonth || '';
+
+  const goalSection = goal ? `
+  <section>
+    <div class="section-title">${new Date().getFullYear()} Revenue Goal &nbsp;<span class="section-sub">· $${(goal.annual).toLocaleString()} annual target</span></div>
+    <div class="goal-card">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:2px;">
+        <div>
+          <span style="font-size:32px;font-weight:800;">${shopifyConnected ? f$(goal.yearRevenue) : '—'}</span>
+          <span style="font-size:15px;color:var(--gray-500);margin-left:8px;">/ ${f$(goal.annual)}</span>
+        </div>
+        <span style="font-size:20px;font-weight:700;color:${barColor};">${shopifyConnected ? goal.pctComplete.toFixed(1) + '%' : '—'}</span>
+      </div>
+      ${goalBar(goal.pctComplete, goal.paceStatus)}
+      <div style="display:flex;justify-content:space-between;margin-top:6px;flex-wrap:wrap;gap:8px;">
+        <span style="font-size:13px;font-weight:700;color:${barColor};">
+          ${!shopifyConnected ? 'Connect Shopify to track progress'
+            : goal.paceStatus === 'ahead'
+              ? '▲ Ahead of pace by ' + f$(Math.abs(goal.paceGap))
+              : '▼ Behind pace by ' + f$(Math.abs(goal.paceGap))}
+        </span>
+        <span style="font-size:12px;color:var(--gray-500);">Day ${goal.dayOfYear} of ${goal.daysInYear} &nbsp;·&nbsp; ${f$(goal.annual - goal.yearRevenue)} remaining &nbsp;·&nbsp; Expected: ${f$(goal.expectedByNow)}</span>
+      </div>
+      <div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--gray-200);">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px;">
+          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray-500);">${currentMonth}</span>
+          <span style="font-size:13px;">
+            <strong>${revenue.thisMonth ? f$(revenue.thisMonth.netRevenue) : '—'}</strong>
+            <span style="color:var(--gray-500);"> / ${f$(goal.monthlyTarget)} target &nbsp;·&nbsp; Day ${mp.daysElapsed} of ${mp.daysInMonth}</span>
+          </span>
+        </div>
+        ${goalBar(monthPct, mp.paceStatus, '9px')}
+        <div style="font-size:12px;color:var(--gray-500);margin-top:5px;">
+          ${mp.daysRemaining} days left &nbsp;·&nbsp; Expected by today: ${f$(mp.expected)}
+          ${mp.paceStatus === 'ahead'
+            ? ' &nbsp;<span style="color:var(--green);font-weight:600;">▲ Ahead by ' + f$(Math.abs(mp.paceGap)) + '</span>'
+            : ' &nbsp;<span style="color:var(--red);font-weight:600;">▼ Behind by ' + f$(Math.abs(mp.paceGap)) + '</span>'}
+        </div>
+      </div>
+    </div>
+  </section>` : '';
+
+  // Revenue at a Glance chart (Spend vs Revenue combined bar)
+  let revenueChartSection = '';
+  const hasShopifyWeeks = trends?.weeks?.length >= 2 && trends.weeks.some(w => w.shopify);
+  if (hasShopifyWeeks) {
+    revenueChartSection = `
+  <section>
+    <div class="section-title">Revenue at a Glance</div>
+    <div class="chart-card">
+      <div class="chart-title">Spend vs Revenue — Weekly</div>
+      <canvas id="chartOverviewRevenue"></canvas>
+    </div>
+  </section>`;
+  }
+
+  // Account Health + Highlights (side by side)
+  const healthHighlightsSection =
+    renderHealth(combined.meta.summary) +
+    renderHighlights(combined.meta.bestAd, combined.meta.worstAd);
+
+  // Top 3 Wins & Problems
+  const ins = combined.insights || { working: [], problems: [] };
+  const li3 = arr => arr.slice(0, 3).map(t => `<li>${t}</li>`).join('');
+  const winsProblemsSection = `
+  <section>
+    <div class="section-title">Top Wins &amp; Problems</div>
+    <div class="insights-grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));">
+      <div class="insight-card working">
+        <h3><span class="i-icon i-green">✓</span> What's Working</h3>
+        <ul class="insight-list">${li3(ins.working)}</ul>
+      </div>
+      <div class="insight-card problems">
+        <h3><span class="i-icon i-red">!</span> Problems to Fix Now</h3>
+        <ul class="insight-list">${li3(ins.problems)}</ul>
+      </div>
+    </div>
+  </section>`;
+
+  // AI section
+  const aiSection = `
+  <section id="ai-insights-section">
+    <div class="ai-section-header">
+      <div>
+        <div class="section-title" style="margin-bottom:2px;">AI Insights <span class="ai-badge">✦ Claude Opus</span></div>
+        <div style="font-size:12px;color:var(--gray-500);">Recommendations based on your live data + DTC benchmarks — updated every time you load this tab</div>
+      </div>
+      <button class="ai-refresh-btn" id="aiRefreshBtn" onclick="refreshRecommendations()">↻ Refresh Insights</button>
+    </div>
+    <div id="ai-insights-content">
+      <div class="ai-loading"><div class="ai-spinner"></div> Generating AI insights from your live data…</div>
+    </div>
+  </section>`;
+
+  document.getElementById('main').innerHTML = goalSection + revenueChartSection + healthHighlightsSection + winsProblemsSection + aiSection;
+
+  // Render revenue chart if we have data
+  if (hasShopifyWeeks && trends?.success) {
+    const weeks = trends.weeks;
+    const labels = weeks.map(w => w.label);
+    const spendData   = weeks.map(w => parseFloat(w.meta.spend.toFixed(2)));
+    const revenueData = weeks.map(w => parseFloat((w.shopify?.netRevenue ?? 0).toFixed(2)));
+    if (charts.overviewRevenue) charts.overviewRevenue.destroy();
+    charts.overviewRevenue = new Chart(document.getElementById('chartOverviewRevenue'), {
+      type: 'bar',
+      data: { labels, datasets: [
+        { label: 'Spend ($)',       data: spendData,   backgroundColor: '#0a0a0acc', borderColor: '#0a0a0a', borderWidth: 1.5, borderRadius: 4 },
+        { label: 'Net Revenue ($)', data: revenueData, backgroundColor: '#008060cc', borderColor: '#008060', borderWidth: 1.5, borderRadius: 4 },
+      ]},
+      options: {
+        responsive: true,
+        plugins: { legend: { labels: { font: { size: 12 }, color: '#3d3d3d' } } },
+        scales: {
+          y: { beginAtZero: true, grid: { color: '#f0f0f0' }, ticks: { color: '#6b6b6b', font: { size: 11 }, callback: v => '$' + v.toLocaleString() } },
+          x: { grid: { display: false }, ticks: { color: '#6b6b6b', font: { size: 11 } } }
+        }
+      }
+    });
+  }
+
+  // Show cached recommendations or loading state
+  if (recommendationsData) renderRecommendations(recommendationsData);
+}
+
+// ── Ads fetch ─────────────────────────────────────────────────────────────────
+async function loadAds() {
+  const btn = document.getElementById('refreshBtn');
+  btn.disabled = true; btn.textContent = '↻ Loading…';
+  showLoading();
+  try {
+    const preset = document.getElementById('datePreset').value;
+    let qs = '';
+    if (preset === 'custom') {
+      const since = document.getElementById('sinceDate').value;
+      const until = document.getElementById('untilDate').value;
+      if (!since || !until) { showError('Please select both a start and end date.'); return; }
+      qs = `?since=${since}&until=${until}`;
+    } else {
+      qs = `?date_preset=${preset}`;
+    }
+    const [combinedRes, trendsRes] = await Promise.all([
+      fetch('/api/combined' + qs).then(r => r.json()),
+      fetch('/api/trends').then(r => r.json()),
+    ]);
+    if (!combinedRes.success) { showError(combinedRes.error || 'Unknown server error', combinedRes.tokenExpired); return; }
+    adsData = { combined: combinedRes, trends: trendsRes };
+    renderAds(adsData);
+    document.getElementById('timestamp').textContent =
+      'Updated ' + new Date(combinedRes.fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '↻ Refresh';
+  }
+}
+
+// ── Ads render ────────────────────────────────────────────────────────────────
+function renderAds(data) {
+  const { combined, trends } = data;
+  const { meta, shopify, insights, dateRange } = combined;
+
+  let trendsHtml = '';
+  if (trends?.success && trends?.weeks?.length) {
+    const { weeks, changes, shopifyConnected, klaviyoConnected } = trends;
+    const emailOpenData  = weeks.map(w => w.email?.avgOpenRate  ?? null);
+    const emailClickData = weeks.map(w => w.email?.avgClickRate ?? null);
+    const hasEmailData   = klaviyoConnected && emailOpenData.some(v => v != null);
+
+    trendsHtml = `
+    <section>
+      <div class="section-title">Weekly Trends</div>
+      <div style="margin-bottom:28px;">
+        <div class="section-title">Week-over-Week Changes <span class="section-sub">· Last week vs previous week</span></div>
+        ${renderChanges(changes, shopifyConnected, klaviyoConnected)}
+      </div>
+      <div class="section-title">Weekly Trends · Last 4 Weeks</div>
+      <div class="charts-grid">
+        <div class="chart-card"><div class="chart-title">Spend</div><canvas id="chartSpend"></canvas></div>
+        <div class="chart-card"><div class="chart-title">Purchases</div><canvas id="chartPurchases"></canvas></div>
+        <div class="chart-card"><div class="chart-title">CTR (%)</div><canvas id="chartCtr"></canvas></div>
+        <div class="chart-card"><div class="chart-title">CPM</div><canvas id="chartCpm"></canvas></div>
+        ${shopifyConnected ? `
+        <div class="chart-card"><div class="chart-title">Net Revenue (Shopify)</div><canvas id="chartRevenue"></canvas></div>
+        <div class="chart-card"><div class="chart-title">AOV (Shopify)</div><canvas id="chartAov"></canvas></div>` : ''}
+        ${hasEmailData ? `
+        <div class="chart-card"><div class="chart-title">Email Open Rate (%)</div><canvas id="chartEmailOpen"></canvas></div>
+        <div class="chart-card"><div class="chart-title">Email Click Rate (%)</div><canvas id="chartEmailClick"></canvas></div>` : ''}
+        <div class="chart-card" style="grid-column:1/-1;">
+          <div class="chart-title">Spend vs Revenue — All Weeks</div>
+          <canvas id="chartSpendRevenue"></canvas>
+        </div>
+      </div>
+    </section>`;
+  }
+
+  document.getElementById('main').innerHTML = [
+    renderMetaSummary(meta.summary, dateRange),
+    shopify && shopify.configured ? renderStorePerf(shopify) : renderShopifyNotice(shopify, combined.shopifyStatus),
+    renderRoas(meta.summary, combined.combined, shopify),
+    renderHealth(meta.summary),
+    renderHighlights(meta.bestAd, meta.worstAd),
+    renderAdCards(meta.ads),
+    renderInsights(insights),
+    trendsHtml,
+  ].join('');
+
+  // Render trend charts
+  if (trends?.success && trends?.weeks?.length) {
+    const { weeks, shopifyConnected, klaviyoConnected } = trends;
+    const labels = weeks.map(w => w.label);
+    const emailOpenData  = weeks.map(w => w.email?.avgOpenRate  ?? null);
+    const emailClickData = weeks.map(w => w.email?.avgClickRate ?? null);
+    const hasEmailData   = klaviyoConnected && emailOpenData.some(v => v != null);
+
+    Object.values(charts).forEach(c => c.destroy());
+
+    const spendData   = weeks.map(w => parseFloat(w.meta.spend.toFixed(2)));
+    const purchData   = weeks.map(w => w.meta.purchases);
+    const ctrData     = weeks.map(w => parseFloat(w.meta.ctr.toFixed(2)));
+    const cpmData     = weeks.map(w => parseFloat(w.meta.cpm.toFixed(2)));
+    const revenueData = weeks.map(w => parseFloat((w.shopify?.netRevenue ?? 0).toFixed(2)));
+    const aovData     = weeks.map(w => parseFloat((w.shopify?.aov ?? 0).toFixed(2)));
+
+    const barCfg = (label, data, color) => ({
+      type: 'bar',
+      data: { labels, datasets: [{ label, data, backgroundColor: color + 'cc', borderColor: color, borderWidth: 1.5, borderRadius: 5 }] },
+      options: { responsive: true, plugins: { legend: { display: false } }, scales: {
+        y: { beginAtZero: true, grid: { color: '#f0f0f0' }, ticks: { color: '#6b6b6b', font: { size: 11 } } },
+        x: { grid: { display: false }, ticks: { color: '#6b6b6b', font: { size: 11 } } }
+      }}
+    });
+
+    const lineCfg = (label, data, color) => ({
+      type: 'line',
+      data: { labels, datasets: [{ label, data, borderColor: color, backgroundColor: color + '18', fill: true, tension: 0.35, pointRadius: 5, pointBackgroundColor: color }] },
+      options: { responsive: true, plugins: { legend: { display: false } }, scales: {
+        y: { grid: { color: '#f0f0f0' }, ticks: { color: '#6b6b6b', font: { size: 11 } } },
+        x: { grid: { display: false }, ticks: { color: '#6b6b6b', font: { size: 11 } } }
+      }}
+    });
+
+    charts.spend     = new Chart(document.getElementById('chartSpend'),     barCfg('Spend ($)', spendData, '#0a0a0a'));
+    charts.purchases = new Chart(document.getElementById('chartPurchases'), barCfg('Purchases', purchData, '#0066cc'));
+    charts.ctr       = new Chart(document.getElementById('chartCtr'),       lineCfg('CTR (%)', ctrData, '#008060'));
+    charts.cpm       = new Chart(document.getElementById('chartCpm'),       lineCfg('CPM ($)', cpmData, '#b25a00'));
+
+    if (shopifyConnected) {
+      charts.revenue = new Chart(document.getElementById('chartRevenue'), barCfg('Net Revenue ($)', revenueData, '#008060'));
+      charts.aov     = new Chart(document.getElementById('chartAov'),     lineCfg('AOV ($)', aovData, '#6600cc'));
+    }
+
+    if (hasEmailData) {
+      charts.emailOpen  = new Chart(document.getElementById('chartEmailOpen'),  lineCfg('Open Rate (%)',  emailOpenData,  '#c0399b'));
+      charts.emailClick = new Chart(document.getElementById('chartEmailClick'), lineCfg('Click Rate (%)', emailClickData, '#7c3aed'));
+    }
+
+    charts.combined = new Chart(document.getElementById('chartSpendRevenue'), {
+      type: 'bar',
+      data: { labels, datasets: [
+        { label: 'Spend ($)',       data: spendData,   backgroundColor: '#0a0a0acc', borderColor: '#0a0a0a', borderWidth: 1.5, borderRadius: 4 },
+        ...(shopifyConnected ? [{ label: 'Net Revenue ($)', data: revenueData, backgroundColor: '#008060cc', borderColor: '#008060', borderWidth: 1.5, borderRadius: 4 }] : []),
+      ]},
+      options: {
+        responsive: true,
+        plugins: { legend: { labels: { font: { size: 12 }, color: '#3d3d3d' } } },
+        scales: {
+          y: { beginAtZero: true, grid: { color: '#f0f0f0' }, ticks: { color: '#6b6b6b', font: { size: 11 }, callback: v => '$' + v.toLocaleString() } },
+          x: { grid: { display: false }, ticks: { color: '#6b6b6b', font: { size: 11 } } }
+        }
+      }
+    });
+  }
+}
+
+function renderChanges(changes, shopifyConnected, klaviyoConnected) {
+  if (!changes) return '<p style="color:var(--gray-500);font-size:13px;">Not enough weekly data yet — trends appear after the first full week of data.</p>';
+  const items = [
+    { label: 'Spend',     value: changes.spend,     positiveIsGood: false },
+    { label: 'Purchases', value: changes.purchases,  positiveIsGood: true },
+    { label: 'CTR',       value: changes.ctr,        positiveIsGood: true },
+    { label: 'CPM',       value: changes.cpm,        positiveIsGood: false },
+    ...(shopifyConnected ? [
+      { label: 'Revenue',    value: changes.revenue,   positiveIsGood: true },
+      { label: 'AOV',        value: changes.aov,        positiveIsGood: true },
+      { label: 'Store ROAS', value: changes.storeRoas, positiveIsGood: true },
+    ] : []),
+    ...(klaviyoConnected ? [
+      { label: 'Email Open',  value: changes.emailOpenRate,  positiveIsGood: true },
+      { label: 'Email Click', value: changes.emailClickRate, positiveIsGood: true },
+    ] : []),
+  ];
+  return `<div class="changes-grid">${items.map(({ label, value, positiveIsGood }) => {
+    const na   = value == null;
+    const good = !na && (positiveIsGood ? value > 0 : value < 0);
+    const bad  = !na && (positiveIsGood ? value < 0 : value > 0);
+    const cls  = na ? 'delta-neutral' : good ? 'delta-up' : bad ? 'delta-down' : 'delta-neutral';
+    const arrow = na ? '' : value > 0 ? '▲ ' : '▼ ';
+    return `<div class="change-card">
+      <div class="change-label">${label}</div>
+      <div class="change-delta ${cls}" style="font-size:20px;font-weight:700;">${na ? '—' : arrow + Math.abs(value) + '%'}</div>
+      <div style="font-size:11px;color:var(--gray-500);margin-top:3px;">vs prior week</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+// ── Email (Klaviyo) fetch ──────────────────────────────────────────────────────
+async function loadEmail() {
+  const btn = document.getElementById('refreshBtn');
+  btn.disabled = true; btn.textContent = '↻ Loading…';
+  showLoading();
+  try {
+    const res  = await fetch('/api/klaviyo');
+    const json = await res.json();
+    if (!json.success) {
+      if (json.notConfigured) {
+        showEmailNotConfigured();
+      } else {
+        showError(json.error || 'Unknown error');
+      }
+      return;
+    }
+    emailData = json;
+    renderEmail(json);
+    document.getElementById('timestamp').textContent =
+      'Updated ' + new Date(json.fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '↻ Refresh';
+  }
+}
+
+function showEmailNotConfigured() {
+  document.getElementById('main').innerHTML = `
+    <div class="state-card">
+      <div class="state-icon">📧</div>
+      <div class="state-title">Klaviyo Not Configured</div>
+      <div class="state-desc">
+        Add your Klaviyo Private API Key to unlock the Email tab.<br><br>
+        Run <code>bash setup.sh</code> and enter your key when prompted,<br>
+        then restart: <code>node server.js</code>
+      </div>
+    </div>`;
+}
+
+// ── Email (Klaviyo) render ─────────────────────────────────────────────────────
+function renderEmail(data) {
+  const { aggregate: agg, campaigns, lists, totalListSize } = data;
+
+  const orClass  = agg.openRate  == null ? '' : agg.openRate  >= 30 ? 'green' : agg.openRate  >= 20 ? 'yellow' : 'red';
+  const ctrClass = agg.clickRate == null ? '' : agg.clickRate >= 3  ? 'green' : agg.clickRate >= 1  ? 'yellow' : 'red';
+  const hasRevCol = agg.revenue != null;
+
+  const campaignRows = campaigns.length === 0
+    ? `<tr><td colspan="${hasRevCol ? 6 : 5}" style="text-align:center;color:var(--gray-500);padding:24px;">No email campaigns found for the last 30 days</td></tr>`
+    : campaigns.map(c => {
+        const statusCls = { sent: 'status-sent', draft: 'status-draft', scheduled: 'status-scheduled', cancelled: 'status-cancelled' }[c.status] || 'status-draft';
+        const sentDate  = c.sentAt ? new Date(c.sentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+        const orCls  = c.openRate  != null ? (c.openRate  >= 30 ? 'delta-up' : c.openRate  < 15 ? 'delta-down' : '') : '';
+        const ctrCls = c.clickRate != null ? (c.clickRate >= 3  ? 'delta-up' : c.clickRate < 0.5 ? 'delta-down' : '') : '';
+        return `<tr>
+          <td style="font-weight:600;color:var(--black);max-width:220px;">${c.name}</td>
+          <td><span class="status-badge ${statusCls}">${c.status}</span></td>
+          <td style="white-space:nowrap;">${sentDate}</td>
+          <td><span class="${orCls}">${c.openRate  != null ? c.openRate  + '%' : '—'}</span></td>
+          <td><span class="${ctrCls}">${c.clickRate != null ? c.clickRate + '%' : '—'}</span></td>
+          ${hasRevCol ? `<td>${c.revenue != null ? f$(c.revenue) : '—'}</td>` : ''}
+        </tr>`;
+      }).join('');
+
+  const listRows = lists.length === 0
+    ? '<tr><td style="text-align:center;color:var(--gray-500);padding:24px;">No lists found</td></tr>'
+    : lists.map(l => `<tr>
+        <td style="font-weight:600;color:var(--black);">${l.name}</td>
+        <td style="color:var(--gray-500);font-size:12px;">${l.optIn || '—'}</td>
+      </tr>`).join('');
+
+  // Email insights
+  const working = [], problems = [], nextsteps = [];
+  if (agg.openRate != null) {
+    if (agg.openRate >= 30) working.push(`<strong>Strong open rate of ${agg.openRate}%</strong> — well above the ~20% industry average. Your subject lines are working.`);
+    else if (agg.openRate >= 20) working.push(`Open rate of <strong>${agg.openRate}%</strong> is at industry average. Test curiosity-driven or personalized subject lines to push above 30%.`);
+    else problems.push(`<strong>Low open rate of ${agg.openRate}%</strong> — below the ~20% average. Try stronger subject lines, tighter segmentation, or clean out subscribers who haven't opened in 90+ days.`);
+  }
+  if (agg.clickRate != null) {
+    if (agg.clickRate >= 3) working.push(`<strong>Click rate of ${agg.clickRate}%</strong> is strong — your email content is driving real action.`);
+    else if (agg.clickRate >= 1) working.push(`Click rate of <strong>${agg.clickRate}%</strong> is average. One prominent CTA (not multiple links) typically lifts this.`);
+    else problems.push(`<strong>Click rate of ${agg.clickRate}%</strong> is low. Ensure each email has one clear, high-contrast CTA and that the offer matches the subject line.`);
+  }
+  if (agg.revenue != null && agg.revenue > 0) working.push(`<strong>Email drove ${f$(agg.revenue)}</strong> in attributed revenue over the last 30 days.`);
+  if (lists.length > 0) {
+    nextsteps.push(`<strong>${lists.length} email list${lists.length !== 1 ? 's' : ''} active.</strong> Keep growing with post-purchase, browse-abandonment, and exit-intent flows.`);
+  }
+  if (agg.openRate != null && agg.openRate < 20) nextsteps.push('<strong>Clean inactive subscribers:</strong> Remove anyone who hasn\'t opened in 90+ days. A smaller engaged list beats a large unresponsive one for inbox placement.');
+  nextsteps.push('<strong>Prioritize flows over campaigns:</strong> Abandoned cart, browse abandonment, and post-purchase sequences generate 3–4× more revenue per email than broadcast campaigns.');
+  if (working.length === 0) working.push('Email data loaded. Review campaign performance and list health below.');
+  if (problems.length === 0) problems.push('No major email issues detected this period. Keep an eye on open and click rates as you scale sends.');
+
+  const li = arr => arr.map(t => `<li>${t}</li>`).join('');
+
+  document.getElementById('main').innerHTML = `
+  <section>
+    <div class="section-title">Email Performance <span class="m-source src-klaviyo" style="font-size:10px;padding:2px 7px;border-radius:4px;vertical-align:middle;">Klaviyo</span> <span class="section-sub">· Last 30 days</span></div>
+    <div class="grid-4">
+      <div class="metric-card">
+        <div class="m-label">Open Rate <span class="m-source src-klaviyo">Klaviyo</span></div>
+        <div class="m-value ${orClass}">${agg.openRate != null ? agg.openRate + '%' : '—'}</div>
+        <div class="m-sub">${agg.opensUnique > 0 ? fN(agg.opensUnique) + ' total opens' : 'No sends this period'}</div>
+      </div>
+      <div class="metric-card">
+        <div class="m-label">Click Rate <span class="m-source src-klaviyo">Klaviyo</span></div>
+        <div class="m-value ${ctrClass}">${agg.clickRate != null ? agg.clickRate + '%' : '—'}</div>
+        <div class="m-sub">${agg.clicksUnique > 0 ? fN(agg.clicksUnique) + ' total clicks' : 'No clicks this period'}</div>
+      </div>
+      ${hasRevCol ? `<div class="metric-card">
+        <div class="m-label">Email Revenue <span class="m-source src-klaviyo">Klaviyo</span></div>
+        <div class="m-value green">${f$(agg.revenue)}</div>
+        <div class="m-sub">Attributed to email — last 30 days</div>
+      </div>` : ''}
+      <div class="metric-card">
+        <div class="m-label">Email Lists <span class="m-source src-klaviyo">Klaviyo</span></div>
+        <div class="m-value">${lists.length > 0 ? lists.length : '—'}</div>
+        <div class="m-sub">${lists.length > 0 ? lists.map(l => l.name).slice(0, 2).join(', ') + (lists.length > 2 ? ' +' + (lists.length - 2) + ' more' : '') : 'No lists found'}</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-title">Recent Campaigns</div>
+    <div style="background:var(--white);border:1px solid var(--gray-200);border-radius:var(--radius);overflow:auto;box-shadow:var(--shadow);">
+      <table class="email-table">
+        <thead><tr>
+          <th>Campaign</th><th>Status</th><th>Sent</th>
+          <th>Open Rate</th><th>Click Rate</th>
+          ${hasRevCol ? '<th>Revenue</th>' : ''}
+        </tr></thead>
+        <tbody>${campaignRows}</tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-title">Email Lists</div>
+    <div style="background:var(--white);border:1px solid var(--gray-200);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);max-width:500px;">
+      <table class="email-table">
+        <thead><tr><th>List</th><th>Opt-in Type</th></tr></thead>
+        <tbody>${listRows}</tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-title">Insights &amp; Action Plan</div>
+    <div class="insights-grid">
+      <div class="insight-card working">
+        <h3><span class="i-icon i-green">✓</span> What's Working</h3>
+        <ul class="insight-list">${li(working)}</ul>
+      </div>
+      <div class="insight-card problems">
+        <h3><span class="i-icon i-red">!</span> Problems to Fix Now</h3>
+        <ul class="insight-list">${li(problems)}</ul>
+      </div>
+      <div class="insight-card nextsteps">
+        <h3><span class="i-icon i-blue">→</span> Suggested Next Steps</h3>
+        <ul class="insight-list">${li(nextsteps)}</ul>
+      </div>
+    </div>
+  </section>`;
+}
+
+// ── P&L ───────────────────────────────────────────────────────────────────────
+// Fixed subscription categories (auto-populated from subscriptions.json)
+const SUB_CATS = {
+  shopify_subscription: 'Shopify Plan',
+  shopify_apps:         'Shopify Apps',
+  klaviyo:              'Klaviyo (Email)',
+  loop_returns:         'Loop Returns',
+  apps_tools:           'Apps & Tools',
+};
+// Manual variable expense categories
+const MANUAL_CATS = [
+  { key: 'product_dev',    label: 'Product Development' },
+  { key: 'ugc_creators',   label: 'UGC & Creators' },
+  { key: 'inventory_cogs', label: 'Inventory / COGS' },
+  { key: 'other',          label: 'Other' },
+];
+// CATEGORY_LABELS map for subscriptions manager
+const CAT_LABELS = {
+  shopify_subscription: 'Shopify Plan',
+  shopify_apps:         'Shopify Apps',
+  shopify_shipping:     'Shopify Shipping',
+  klaviyo:              'Klaviyo',
+  loop_returns:         'Loop Returns',
+  apps_tools:           'Apps & Tools',
+};
+
+let pnlPeriod = 'this_month'; // 'this_month' | 'last_month' | 'ytd'
+
+async function loadPnl() {
+  const btn = document.getElementById('refreshBtn');
+  btn.disabled = true; btn.textContent = '↻ Loading…';
+  showLoading();
+  try {
+    const res  = await fetch('/api/pnl');
+    const json = await res.json();
+    if (!json.success) { showError(json.error || 'Unknown error', json.tokenExpired); return; }
+    pnlData = json;
+    renderPnl(json);
+    document.getElementById('timestamp').textContent =
+      'Updated ' + new Date(json.fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '↻ Refresh';
+  }
+}
+
+// Derive period-specific values from full pnlData
+function getPeriodData(data, period) {
+  const { revenue, expenses } = data;
+  const months = expenses.monthsElapsedYTD || 1;
+
+  let rev, ads, dateLabel, daysElapsed;
+  if (period === 'last_month') {
+    rev        = revenue.lastMonth;
+    ads        = expenses.adsLM;
+    dateLabel  = rev ? rev.dateRange.since + ' → ' + rev.dateRange.until : 'Last month';
+    daysElapsed = rev ? new Date(rev.dateRange.until).getDate() : 30;
+  } else if (period === 'ytd') {
+    rev        = revenue.thisYear;
+    ads        = expenses.adsYTD;
+    dateLabel  = rev ? rev.dateRange.since + ' → ' + rev.dateRange.until : 'Jan 1 → today';
+    daysElapsed = expenses.dayOfYear || 1;
+  } else {
+    rev        = revenue.thisMonth;
+    ads        = expenses.adsTM;
+    dateLabel  = rev ? rev.dateRange.since + ' → ' + rev.dateRange.until : 'This month';
+    daysElapsed = expenses.daysElapsedMonth || 1;
+  }
+
+  // Scale monthly sub totals by period
+  const subsMultiplier = period === 'ytd' ? months : 1;
+  const monthlyTotals  = expenses.monthlySubTotals || {};
+  const categoryTotals = {};
+  Object.entries(monthlyTotals).forEach(([k, v]) => {
+    // Shipping is only estimated for current month; zero it for other periods
+    if (k === 'shopify_shipping') {
+      categoryTotals[k] = period === 'this_month' ? v : 0;
+    } else {
+      categoryTotals[k] = parseFloat((v * subsMultiplier).toFixed(2));
+    }
+  });
+
+  // Manual expenses only tracked for current month
+  const manual      = period === 'this_month' ? (expenses.manual || {}) : {};
+  const manualTotal = MANUAL_CATS.reduce((s, c) => s + (parseFloat(manual[c.key]) || 0), 0);
+  const subsTotal   = Object.values(categoryTotals).reduce((s, v) => s + v, 0);
+  const totalExp    = subsTotal + manualTotal + (ads || 0);
+  const netRevenue  = rev?.netRevenue || 0;
+  const netProfit   = netRevenue - totalExp;
+  const burnRate    = daysElapsed > 0 ? totalExp / daysElapsed : 0;
+  const margin      = netRevenue > 0 ? (netProfit / netRevenue) * 100 : null;
+
+  return { rev, ads, dateLabel, categoryTotals, manual, manualTotal, totalExp, netRevenue, netProfit, burnRate, margin, subsMultiplier };
+}
+
+function switchPnlPeriod(val) {
+  pnlPeriod = val;
+  if (pnlData) renderPnl(pnlData);
+}
+
+function goalBar(pct, status, height) {
+  const color = status === 'ahead' ? 'var(--green)' : status === 'close' ? '#f0a500' : 'var(--red)';
+  const w     = Math.min(Math.max(parseFloat(pct) || 0, 0), 100);
+  return `<div class="goal-bar-track" style="${height ? 'height:' + height + ';' : ''}">
+    <div class="goal-bar-fill" style="width:${w}%;background:${color};"></div>
+  </div>`;
+}
+
+function renderPnl(data) {
+  const { revenue, expenses, shopifyConnected } = data;
+  savedNotes = expenses.notes || '';
+
+  // Compute period-specific values
+  const pd         = getPeriodData(data, pnlPeriod);
+  const subsItems  = expenses.subscriptions?.items || [];
+  const shippingEst = pnlPeriod === 'this_month' ? expenses.shipping : null;
+  const isYTD      = pnlPeriod === 'ytd';
+  const isLM       = pnlPeriod === 'last_month';
+
+  const netClass = pd.netProfit >= 0 ? 'green' : 'red';
+  const mrgClass = pd.margin == null ? '' : pd.margin >= 20 ? 'green' : pd.margin >= 0 ? 'yellow' : 'red';
+
+  // Period dropdown label
+  const periodLabel = isYTD ? 'Year to Date' : isLM ? 'Last Month' : 'This Month';
+
+  // Sub detail strings per category
+  function subDetails(cat, multiplier) {
+    const items = subsItems.filter(s => s.active && s.category === cat);
+    if (!items.length) return '';
+    const suffix = multiplier > 1 ? ` × ${multiplier} months` : '';
+    return `<div class="sub-detail">${items.map(s => `${s.name} ${f$(s.amount)}`).join(' · ')}${suffix}</div>`;
+  }
+
+  // Fixed subscription rows
+  const fixedRows = Object.entries(SUB_CATS).map(([key, label]) => {
+    const amt = pd.categoryTotals[key] || 0;
+    return `<tr>
+      <td>${label} <span class="fixed-badge">Fixed</span>
+        ${subDetails(key, pd.subsMultiplier)}</td>
+      <td style="text-align:right;font-weight:600;">${f$(amt)}</td>
+    </tr>`;
+  }).join('');
+
+  // Shipping row
+  const shippingAmt = pd.categoryTotals.shopify_shipping || 0;
+  const shippingRow = `<tr>
+    <td>Shopify Shipping <span class="${shippingEst ? 'est-badge' : 'fixed-badge'}">${shippingEst ? 'Est.' : 'N/A'}</span>
+      ${shippingEst
+        ? `<div class="sub-detail">${shippingEst.orderCount} shipped orders × ${f$(shippingEst.avgLabelCost)} avg label</div>`
+        : `<div class="sub-detail">${isLM || isYTD ? 'Shipping estimate only available for current month' : '0 shipped orders this month'}</div>`}
+    </td>
+    <td style="text-align:right;font-weight:600;">${f$(shippingAmt)}</td>
+  </tr>`;
+
+  // Manual input rows — only editable for This Month; read-only (zero) for other periods
+  const manualRows = MANUAL_CATS.map(cat => {
+    const val = (pd.manual && pd.manual[cat.key]) || 0;
+    if (isLM || isYTD) {
+      return `<tr>
+        <td>${cat.label} <span style="font-size:10px;color:var(--gray-400);font-weight:500;">Manual</span>
+          <div class="sub-detail" style="color:var(--gray-400);">Switch to This Month to edit</div></td>
+        <td style="text-align:right;font-weight:600;color:var(--gray-400);">${f$(val)}</td>
+      </tr>`;
+    }
+    return `<tr>
+      <td>${cat.label} <span style="font-size:10px;color:var(--gray-400);font-weight:500;">Manual</span></td>
+      <td style="text-align:right;">
+        <span style="color:var(--gray-500);font-size:12px;margin-right:2px;">$</span><input
+          class="expense-input" data-key="${cat.key}" type="number" min="0" step="0.01"
+          value="${val}" oninput="scheduleExpenseSave()">
+      </td>
+    </tr>`;
+  }).join('');
+
+  const shopifyNotice = !shopifyConnected
+    ? `<div class="notice-bar"><strong>Shopify not connected.</strong> <a href="/shopify/auth" target="_blank" onclick="pollForShopifyConnect()" style="color:var(--black);font-weight:700;">Connect Shopify →</a> to unlock revenue data.</div>`
+    : '';
+
+  document.getElementById('main').innerHTML = `
+  <section>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+      <div class="section-title" style="margin:0;">P&amp;L Overview</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:12px;color:var(--gray-500);font-weight:600;">Period:</span>
+        <select onchange="switchPnlPeriod(this.value)"
+          style="border:1px solid var(--gray-300);border-radius:7px;padding:6px 12px;font-size:13px;font-weight:600;background:var(--white);cursor:pointer;outline:none;">
+          <option value="this_month" ${pnlPeriod==='this_month'?'selected':''}>This Month</option>
+          <option value="last_month" ${pnlPeriod==='last_month'?'selected':''}>Last Month</option>
+          <option value="ytd"        ${pnlPeriod==='ytd'?'selected':''}>Year to Date</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Revenue summary card for selected period -->
+    ${shopifyNotice || `<div class="grid-3">
+      <div class="metric-card shopify-card">
+        <div class="m-label">Revenue <span class="m-source src-shopify">Shopify</span></div>
+        <div class="m-value">${pd.rev ? f$(pd.rev.netRevenue) : '—'}</div>
+        <div class="m-sub">${pd.rev ? fN(pd.rev.orderCount) + ' orders · ' + pd.dateLabel : 'No data'}</div>
+      </div>
+      <div class="metric-card">
+        <div class="m-label">Total Expenses <span class="m-source src-combined">Combined</span></div>
+        <div class="m-value">${f$(pd.totalExp)}</div>
+        <div class="m-sub">${pd.dateLabel}</div>
+      </div>
+      <div class="metric-card">
+        <div class="m-label">Net Profit <span class="m-source src-combined">Combined</span></div>
+        <div class="m-value ${netClass}" id="pnl-net-profit">${f$(pd.netProfit)}</div>
+        <div class="m-sub">${pd.margin != null ? pd.margin.toFixed(1) + '% margin' : '—'}</div>
+      </div>
+    </div>`}
+  </section>
+
+  <section>
+    <div class="pnl-two-col">
+      <div>
+        <div class="section-title">
+          Money Out — ${periodLabel}
+          <span style="font-size:11px;font-weight:400;color:var(--gray-500);text-transform:none;letter-spacing:0;margin-left:10px;" id="expSaveStatus"></span>
+        </div>
+        <div style="background:var(--white);border:1px solid var(--gray-200);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);">
+          <table class="pnl-table">
+            <thead><tr><th>Category</th><th style="text-align:right;">${periodLabel}</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Meta Ads <span class="auto-badge">Auto</span></td>
+                <td style="text-align:right;font-weight:600;">${pd.ads != null ? f$(pd.ads) : '—'}</td>
+              </tr>
+              ${fixedRows}
+              ${shippingRow}
+              ${manualRows}
+              <tr class="total-row">
+                <td><strong>Total Expenses</strong></td>
+                <td style="text-align:right;" id="pnl-total-exp"><strong>${f$(pd.totalExp)}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Subscriptions Manager -->
+        <div class="subs-panel">
+          <div class="subs-panel-header" onclick="toggleSubsPanel()">
+            <h4>⚙ Manage Fixed Subscriptions</h4>
+            <span id="subs-panel-chevron" style="font-size:12px;color:var(--gray-500);">▼ Show</span>
+          </div>
+          <div class="subs-panel-body" id="subs-panel-body" style="display:none;">
+            <div id="subs-list"></div>
+            <button class="add-sub-btn" onclick="openAddSubForm()">+ Add Subscription</button>
+            <div id="add-sub-form" style="display:none;margin-top:10px;padding:10px;background:var(--gray-100);border-radius:8px;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                <input id="new-sub-name" placeholder="Name (e.g. Shopify Plan)" style="border:1px solid var(--gray-300);border-radius:5px;padding:5px 8px;font-size:12px;">
+                <select id="new-sub-cat" style="border:1px solid var(--gray-300);border-radius:5px;padding:5px 8px;font-size:12px;">
+                  ${Object.entries(CAT_LABELS).map(([k,v]) => `<option value="${k}">${v}</option>`).join('')}
+                </select>
+                <input id="new-sub-amount" type="number" placeholder="Amount ($)" min="0" step="0.01" style="border:1px solid var(--gray-300);border-radius:5px;padding:5px 8px;font-size:12px;">
+              </div>
+              <button onclick="saveNewSub()" style="padding:5px 14px;border:none;background:var(--black);color:var(--white);border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;">Add</button>
+              <button onclick="document.getElementById('add-sub-form').style.display='none'" style="padding:5px 10px;border:1px solid var(--gray-300);background:none;border-radius:5px;font-size:12px;margin-left:6px;cursor:pointer;">Cancel</button>
+            </div>
+            <div class="shipping-est-row">
+              <label>Avg shipping label cost <span style="font-weight:400;color:var(--gray-500);">(used for estimation)</span></label>
+              <span style="color:var(--gray-500);font-size:12px;">$</span>
+              <input class="shipping-est-input" id="shipping-avg-input" type="number" min="0" step="0.01"
+                value="${expenses.subscriptions?.settings?.avgLabelCost || 6.00}"
+                onchange="saveShippingAvg(this.value)">
+              <span style="font-size:11px;color:var(--gray-500);">/label</span>
+            </div>
+          </div>
+        </div>
+
+        ${savedNotes ? `
+        <div style="margin-top:16px;">
+          <div class="insight-card flagged" style="margin-top:0;">
+            <h3><span class="i-icon i-amber">⚑</span> Flagged for Review</h3>
+            <ul class="insight-list">
+              ${savedNotes.split('\n').filter(Boolean).map(s => `<li>${escHtml(s.replace(/^⚠️\s*/, ''))}</li>`).join('')}
+            </ul>
+          </div>
+        </div>` : ''}
+      </div>
+      <div>
+        <div class="section-title">Summary</div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div class="metric-card">
+            <div class="m-label">Net Profit <span class="m-source src-combined">Combined</span></div>
+            <div class="m-value ${netClass}" id="pnl-net-profit-2">${f$(pd.netProfit)}</div>
+            <div class="m-sub">Revenue − all expenses</div>
+          </div>
+          <div class="metric-card">
+            <div class="m-label">Daily Burn Rate</div>
+            <div class="m-value" id="pnl-burn-rate">${f$(pd.burnRate)}<span style="font-size:13px;font-weight:400;color:var(--gray-500);">/day</span></div>
+            <div class="m-sub">Avg daily spend · ${periodLabel.toLowerCase()}</div>
+          </div>
+          <div class="metric-card">
+            <div class="m-label">Profit Margin <span class="m-source src-combined">Combined</span></div>
+            <div class="m-value ${mrgClass}" id="pnl-margin">${pd.margin != null ? pd.margin.toFixed(1) + '%' : '—'}</div>
+            <div class="m-sub">Net profit ÷ revenue</div>
+          </div>
+        </div>
+        <div style="margin-top:16px;padding:12px;background:var(--gray-100);border-radius:8px;font-size:11px;color:var(--gray-500);line-height:1.6;">
+          <strong style="color:var(--gray-700);">Legend</strong><br>
+          <span class="auto-badge">Auto</span> Live API pull &nbsp;
+          <span class="fixed-badge">Fixed</span> Set once, auto-applies &nbsp;
+          <span class="est-badge">Est.</span> Calculated from order data<br>
+          <span style="font-weight:400;color:var(--gray-400);">Manual</span> Enter each month
+        </div>
+      </div>
+    </div>
+  </section>`;
+
+  // Render subscriptions list
+  renderSubsList(subsItems);
+}
+
+// ── Subscriptions Manager ─────────────────────────────────────────────────────
+let subsOpen = false;
+function toggleSubsPanel() {
+  subsOpen = !subsOpen;
+  const body = document.getElementById('subs-panel-body');
+  const chev = document.getElementById('subs-panel-chevron');
+  if (body) body.style.display = subsOpen ? 'block' : 'none';
+  if (chev) chev.textContent = subsOpen ? '▲ Hide' : '▼ Show';
+}
+
+function renderSubsList(items) {
+  const el = document.getElementById('subs-list');
+  if (!el) return;
+  if (!items || !items.length) { el.innerHTML = '<div style="font-size:12px;color:var(--gray-500);padding:8px 0;">No subscriptions yet.</div>'; return; }
+  el.innerHTML = items.map(s => `
+    <div class="sub-row" id="sub-row-${s.id}">
+      <div class="sub-name-wrap">
+        <div class="sub-name">${escHtml(s.name)}</div>
+        <div class="sub-cat">${CAT_LABELS[s.category] || s.category}</div>
+      </div>
+      <input class="sub-amount-input" type="number" min="0" step="0.01" value="${s.amount}"
+        onchange="updateSubAmount('${s.id}', this.value)" style="border:1px solid var(--gray-300);">
+      <span class="sub-toggle ${s.active ? '' : 'off'}" title="${s.active ? 'Active — click to pause' : 'Paused — click to activate'}"
+        onclick="toggleSub('${s.id}', ${!s.active})">${s.active ? '✅' : '⏸'}</span>
+      <button onclick="deleteSub('${s.id}')" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:13px;font-weight:700;">✕</button>
+    </div>`).join('');
+}
+
+function openAddSubForm() {
+  const f = document.getElementById('add-sub-form');
+  if (f) f.style.display = 'block';
+}
+
+async function saveNewSub() {
+  const name   = document.getElementById('new-sub-name')?.value?.trim();
+  const cat    = document.getElementById('new-sub-cat')?.value;
+  const amount = parseFloat(document.getElementById('new-sub-amount')?.value) || 0;
+  if (!name || !cat) return alert('Name and category required');
+  const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_' + Date.now();
+  await fetch('/api/subscriptions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, name, category: cat, amount, active: true }),
+  });
+  pnlData = null; loadPnl(); // full reload to recalc totals
+}
+
+async function updateSubAmount(id, amount) {
+  if (!pnlData) return;
+  const sub = (pnlData.expenses?.subscriptions?.items || []).find(s => s.id === id);
+  if (!sub) return;
+  await fetch('/api/subscriptions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...sub, amount: parseFloat(amount) || 0 }),
+  });
+  pnlData = null; loadPnl();
+}
+
+async function toggleSub(id, newActive) {
+  if (!pnlData) return;
+  const sub = (pnlData.expenses?.subscriptions?.items || []).find(s => s.id === id);
+  if (!sub) return;
+  await fetch('/api/subscriptions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...sub, active: newActive }),
+  });
+  pnlData = null; loadPnl();
+}
+
+async function deleteSub(id) {
+  if (!confirm('Remove this subscription?')) return;
+  await fetch(`/api/subscriptions/${id}`, { method: 'DELETE' });
+  pnlData = null; loadPnl();
+}
+
+async function saveShippingAvg(val) {
+  await fetch('/api/subscriptions/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ avgLabelCost: parseFloat(val) || 6.00 }),
+  });
+  pnlData = null; loadPnl();
+}
+
+// Debounced auto-save for manual expense inputs
+let savedNotes = '';
+let expSaveTimer = null;
+function scheduleExpenseSave() {
+  clearTimeout(expSaveTimer);
+  const statusEl = document.getElementById('expSaveStatus');
+  if (statusEl) statusEl.textContent = 'Saving…';
+  expSaveTimer = setTimeout(async () => {
+    const payload = {};
+    document.querySelectorAll('.expense-input').forEach(inp => {
+      payload[inp.dataset.key] = parseFloat(inp.value) || 0;
+    });
+    payload.notes = savedNotes;
+    try {
+      const res = await fetch('/api/pnl/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if ((await res.json()).success) {
+        if (statusEl) { statusEl.textContent = 'Saved ✓'; setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000); }
+        recalcPnl(payload);
+      }
+    } catch { if (statusEl) statusEl.textContent = 'Save failed'; }
+  }, 600);
+}
+
+// Live-update the P&L summary without a full reload (manual inputs only — this_month only)
+function recalcPnl(manualExpenses) {
+  if (!pnlData || pnlPeriod !== 'this_month') return;
+  // Temporarily patch manual into pnlData for getPeriodData
+  const saved = pnlData.expenses.manual;
+  pnlData.expenses.manual = { ...saved, ...manualExpenses };
+  const pd = getPeriodData(pnlData, 'this_month');
+  pnlData.expenses.manual = saved;
+
+  const expEl  = document.getElementById('pnl-total-exp');
+  const netEl  = document.getElementById('pnl-net-profit');
+  const netEl2 = document.getElementById('pnl-net-profit-2');
+  const brnEl  = document.getElementById('pnl-burn-rate');
+  const mrgEl  = document.getElementById('pnl-margin');
+
+  if (expEl)  expEl.innerHTML = `<strong>${f$(pd.totalExp)}</strong>`;
+  const netCls = 'm-value ' + (pd.netProfit >= 0 ? 'green' : 'red');
+  if (netEl)  { netEl.textContent  = f$(pd.netProfit); netEl.className  = netCls; }
+  if (netEl2) { netEl2.textContent = f$(pd.netProfit); netEl2.className = netCls; }
+  if (brnEl)  brnEl.innerHTML = f$(pd.burnRate) + '<span style="font-size:13px;font-weight:400;color:var(--gray-500);">/day</span>';
+  const mrgCls = 'm-value ' + (pd.margin == null ? '' : pd.margin >= 20 ? 'green' : pd.margin >= 0 ? 'yellow' : 'red');
+  if (mrgEl)  { mrgEl.textContent = pd.margin != null ? pd.margin.toFixed(1) + '%' : '—'; mrgEl.className = mrgCls; }
+}
+
+// ── AI Recommendations ────────────────────────────────────────────────────────
+async function loadRecommendations() {
+  const container = document.getElementById('ai-insights-content');
+  const btn       = document.getElementById('aiRefreshBtn');
+  if (!container) return;
+  if (btn) btn.disabled = true;
+  container.innerHTML = '<div class="ai-loading"><div class="ai-spinner"></div> Analyzing your live data and searching DTC benchmarks…</div>';
+  try {
+    const res  = await fetch('/api/recommendations');
+    const json = await res.json();
+    if (!json.success) {
+      if (json.notConfigured) {
+        container.innerHTML = `<div class="ai-error">
+          <strong>Anthropic API key not configured.</strong><br>
+          Add <code>ANTHROPIC_API_KEY=your_key</code> to your <code>.env</code> file and restart the server.<br>
+          <a href="https://console.anthropic.com/" target="_blank" style="color:#5a00c8;">Get an API key →</a>
+        </div>`;
+      } else {
+        container.innerHTML = `<div class="ai-error">Failed to generate insights: ${json.error || 'Unknown error'}. <button class="ai-refresh-btn" onclick="refreshRecommendations()">Try again</button></div>`;
+      }
+      return;
+    }
+    recommendationsData = json;
+    renderRecommendations(json);
+  } catch (err) {
+    if (container) container.innerHTML = `<div class="ai-error">Network error: ${err.message}. <button class="ai-refresh-btn" onclick="refreshRecommendations()">Try again</button></div>`;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function refreshRecommendations() {
+  recommendationsData = null;
+  loadRecommendations();
+}
+
+const FOCUS_LABELS = { revenue: 'Revenue', ads: 'Meta Ads', email: 'Email', content: 'Content', expenses: 'Expenses', product: 'Product' };
+
+function renderRecommendations(data) {
+  const container = document.getElementById('ai-insights-content');
+  if (!container) return;
+  const recs = data.recommendations || [];
+  if (!recs.length) { container.innerHTML = '<div class="ai-error">No recommendations returned. Try refreshing.</div>'; return; }
+
+  const ts = data.generatedAt ? ' · Generated ' + new Date(data.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+  const noLive = !data.hasLiveData ? '<div style="font-size:11px;color:var(--gray-500);margin-bottom:12px;">⚠ Shopify not connected — recommendations based on Meta + Email data only.</div>' : '';
+
+  const cards = recs.map((r, i) => {
+    const focusKey = (r.focusArea || '').toLowerCase();
+    const impactKey = (r.impact || 'medium').toLowerCase();
+    const focusLabel = FOCUS_LABELS[focusKey] || r.focusArea || '';
+    const impactLabel = { high: '⬆ High Impact', medium: 'Mid Impact', low: 'Low Impact' }[impactKey] || r.impact;
+
+    return `<div class="rec-card">
+      <div class="rec-card-header">
+        ${focusLabel ? `<span class="rec-focus-badge rec-focus-${focusKey}">${focusLabel}</span>` : ''}
+        <span class="rec-impact-badge rec-impact-${impactKey}">${impactLabel}</span>
+      </div>
+      <div class="rec-action">${i + 1}. ${r.action || ''}</div>
+      <div class="rec-why">${r.why || ''}</div>
+      ${r.mathNote ? `<div class="rec-math">📐 ${r.mathNote}</div>` : ''}
+      ${r.book ? `<div class="rec-book">📖 <strong>${r.book}</strong>${r.bookAuthor ? ' — ' + r.bookAuthor : ''}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  container.innerHTML = `<div style="font-size:11px;color:var(--gray-500);margin-bottom:14px;">Based on your live data + web research${ts}</div>${noLive}<div class="rec-grid">${cards}</div>`;
+}
+
+// ── Inventory tab ─────────────────────────────────────────────────────────────
+async function loadInventory() {
+  const btn = document.getElementById('refreshBtn');
+  btn.disabled = true; btn.textContent = '↻ Loading…';
+  showLoading();
+  try {
+    const res  = await fetch('/api/inventory');
+    const json = await res.json();
+    if (!json.success) {
+      if (json.notConnected) {
+        document.getElementById('main').innerHTML = `
+          <div class="state-card">
+            <div class="state-icon">📦</div>
+            <div class="state-title">Shopify Not Connected</div>
+            <div class="state-desc">
+              The Inventory tab requires Shopify with <strong>read_products</strong> and <strong>read_inventory</strong> scopes.<br><br>
+              <a href="/shopify/auth" target="_blank" onclick="pollForShopifyConnect()" style="background:#0a0a0a;color:#fff;font-size:12px;font-weight:700;padding:8px 16px;border-radius:6px;text-decoration:none;display:inline-block;margin-top:6px;">Connect Shopify (with new scopes) →</a>
+            </div>
+          </div>`;
+      } else if (json.scopeError) {
+        document.getElementById('main').innerHTML = `
+          <div class="state-card">
+            <div class="state-icon">🔒</div>
+            <div class="state-title">Missing Shopify Permissions</div>
+            <div class="state-desc">
+              Your current Shopify token doesn't have <strong>read_products</strong> or <strong>read_inventory</strong> scope.<br><br>
+              Re-authorize to grant the new permissions:<br><br>
+              <a href="/shopify/auth" target="_blank" onclick="pollForShopifyConnect()" style="background:#0a0a0a;color:#fff;font-size:12px;font-weight:700;padding:8px 16px;border-radius:6px;text-decoration:none;display:inline-block;margin-top:6px;">Re-authorize Shopify →</a>
+            </div>
+          </div>`;
+      } else {
+        showError(json.error || 'Unknown error loading inventory');
+      }
+      return;
+    }
+    inventoryData = json;
+    renderInventory(json);
+    document.getElementById('timestamp').textContent =
+      'Updated ' + new Date(json.fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '↻ Refresh';
+  }
+}
+
+function renderInventory(data) {
+  const { products, summary, adSpend, goalAlignment, recommendations } = data;
+  const s = summary;
+
+  // Summary cards
+  const summaryHtml = `
+    <div class="inv-summary-grid">
+      <div class="metric-card">
+        <div class="m-label">Tracked SKUs <span class="m-source src-shopify">Shopify</span></div>
+        <div class="m-value">${s.trackedCount}</div>
+        <div class="m-sub">Inventory-managed variants</div>
+      </div>
+      <div class="metric-card" style="border-top:2px solid var(--red);">
+        <div class="m-label">Critical</div>
+        <div class="m-value ${s.criticalCount > 0 ? 'red' : ''}">${s.criticalCount}</div>
+        <div class="m-sub">Under 10 units or out of stock</div>
+      </div>
+      <div class="metric-card" style="border-top:2px solid #b35a00;">
+        <div class="m-label">Reorder Needed</div>
+        <div class="m-value ${s.reorderCount > 0 ? 'yellow' : ''}">${s.reorderCount}</div>
+        <div class="m-sub">Days left ≤ lead time</div>
+      </div>
+      <div class="metric-card">
+        <div class="m-label">Inventory Value <span class="m-source src-shopify">Shopify</span></div>
+        <div class="m-value">${f$(s.totalInventoryValue)}</div>
+        <div class="m-sub">${fN(s.totalInventory)} total tracked units</div>
+      </div>
+    </div>`;
+
+  // Ad spend impact section
+  let adSpendHtml = '';
+  if (adSpend && adSpend.changePercent != null) {
+    const chg   = adSpend.changePercent;
+    const chgCls = chg > 0 ? 'delta-up' : chg < 0 ? 'delta-down' : 'delta-neutral';
+    const arrow  = chg > 0 ? '▲' : chg < 0 ? '▼' : '';
+    adSpendHtml = `
+      <div class="inv-section">
+        <div class="section-title">Ad Spend Impact on Inventory</div>
+        <div style="background:var(--white);border:1px solid var(--gray-200);border-radius:var(--radius);padding:16px 20px;box-shadow:var(--shadow);">
+          <div style="display:flex;gap:32px;flex-wrap:wrap;align-items:center;">
+            <div>
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray-500);margin-bottom:4px;">This Week</div>
+              <div style="font-size:20px;font-weight:700;">${adSpend.currWeek != null ? f$(adSpend.currWeek) : '—'}</div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray-500);margin-bottom:4px;">Last Week</div>
+              <div style="font-size:20px;font-weight:700;">${adSpend.prevWeek != null ? f$(adSpend.prevWeek) : '—'}</div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray-500);margin-bottom:4px;">Change</div>
+              <div style="font-size:20px;font-weight:700;" class="${chgCls}">${arrow} ${Math.abs(chg)}%</div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray-500);margin-bottom:4px;">Velocity Multiplier</div>
+              <div style="font-size:20px;font-weight:700;">${adSpend.multiplier.toFixed(2)}×</div>
+            </div>
+            ${s.adRiskCount > 0 ? `<div style="background:#fce8f3;border-radius:8px;padding:10px 14px;flex-shrink:0;"><span style="font-size:12px;font-weight:700;color:#a01060;">⚠ ${s.adRiskCount} variant${s.adRiskCount > 1 ? 's' : ''} at ad spend risk — see table below</span></div>` : ''}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // Goal alignment section
+  const ga = goalAlignment;
+  let goalHtml = '';
+  if (ga) {
+    const gapUnits  = ga.unitsNeeded != null ? ga.unitsNeeded - ga.totalInventory : null;
+    const goalColor = ga.canHitGoal === false ? 'var(--red)' : 'var(--green)';
+    goalHtml = `
+      <div class="inv-section">
+        <div class="section-title">$100k Goal Alignment</div>
+        <div style="background:var(--white);border:1px solid var(--gray-200);border-radius:var(--radius);padding:16px 20px;box-shadow:var(--shadow);">
+          <div style="display:flex;gap:32px;flex-wrap:wrap;align-items:center;">
+            <div>
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray-500);margin-bottom:4px;">Revenue Still Needed</div>
+              <div style="font-size:20px;font-weight:700;">${f$(ga.remaining)}</div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray-500);margin-bottom:4px;">Units Needed</div>
+              <div style="font-size:20px;font-weight:700;">${ga.unitsNeeded != null ? fN(ga.unitsNeeded) : '—'}</div>
+              <div style="font-size:11px;color:var(--gray-500);">at ${f$(ga.avgItemPrice)} avg AOV</div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray-500);margin-bottom:4px;">Current Inventory</div>
+              <div style="font-size:20px;font-weight:700;">${fN(ga.totalInventory)}</div>
+            </div>
+            ${gapUnits != null ? `<div>
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--gray-500);margin-bottom:4px;">Gap</div>
+              <div style="font-size:20px;font-weight:700;color:${goalColor};">${ga.canHitGoal ? '✓ On track' : fN(gapUnits) + ' units short'}</div>
+            </div>` : ''}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // Filter bar
+  const filterHtml = `
+    <div class="inv-filter-bar">
+      <button class="inv-filter-btn active" onclick="filterInventoryTable('all', this)">All</button>
+      <button class="inv-filter-btn f-critical" onclick="filterInventoryTable('critical', this)">Critical ${s.criticalCount > 0 ? '(' + s.criticalCount + ')' : ''}</button>
+      <button class="inv-filter-btn f-reorder" onclick="filterInventoryTable('reorder', this)">Reorder ${s.reorderCount > 0 ? '(' + s.reorderCount + ')' : ''}</button>
+      <button class="inv-filter-btn f-warn" onclick="filterInventoryTable('warn', this)">Running Low ${s.warnCount > 0 ? '(' + s.warnCount + ')' : ''}</button>
+      <button class="inv-filter-btn" onclick="filterInventoryTable('ok', this)">OK</button>
+    </div>`;
+
+  // Product groups
+  const productGroupsHtml = products.map(product => {
+    const rows = product.variants.map(v => {
+      const daysNum  = v.daysRemaining != null ? v.daysRemaining.toFixed(1) : null;
+      const projNum  = v.projDaysRemaining != null ? v.projDaysRemaining.toFixed(1) : null;
+      const daysCls  = v.daysRemaining != null
+        ? (v.daysRemaining <= v.leadTimeDays ? 'inv-days-crit' : v.daysRemaining <= 30 ? 'inv-days-warn' : 'inv-days-ok')
+        : '';
+      const rowClass = v.status === 'stockout' ? 'row-stockout' : v.status === 'critical' ? 'row-critical' : v.status === 'reorder' ? 'row-reorder' : '';
+      const badgeClass = { ok: 's-ok', warn: 's-warn', reorder: 's-reorder', critical: 's-critical', stockout: 's-stockout' }[v.status] || 's-ok';
+      const badgeLabel = { ok: 'OK', warn: 'Low', reorder: 'Reorder', critical: 'Critical', stockout: 'Stockout' }[v.status] || v.status;
+
+      return `<tr class="${rowClass}" data-status="${v.status}"
+          data-inventory="${v.inventory != null ? v.inventory : ''}"
+          data-daily-vel="${v.dailyVelocity}"
+          data-proj-daily-vel="${v.projDailyVel}"
+          data-lead-time="${v.leadTimeDays}">
+        <td style="font-weight:600;color:var(--black);">${escHtml(v.title)}${v.adSpendRisk ? '<span class="inv-risk-badge">Ad Risk</span>' : ''}</td>
+        <td style="color:var(--gray-500);font-size:11px;">${escHtml(v.sku || '—')}</td>
+        <td>${v.tracked ? `<span class="inv-days-num">${fN(v.inventory)}</span>` : '<span class="no-velocity">untracked</span>'}</td>
+        <td>${v.unitsSold > 0 ? fN(v.unitsSold) : '<span class="no-velocity">0</span>'}</td>
+        <td>${v.dailyVelocity > 0 ? v.dailyVelocity.toFixed(2) : '<span class="no-velocity">—</span>'}</td>
+        <td>${daysNum != null ? `<span class="inv-days-num ${daysCls}">${daysNum}d</span>` : '<span class="no-velocity">—</span>'}</td>
+        <td>${projNum != null ? `<span class="inv-days-num">${projNum}d</span>` : '<span class="no-velocity">—</span>'}</td>
+        <td><input class="lt-input" type="number" min="1" step="1" value="${v.leadTimeDays}"
+          data-variant-id="${v.id}" data-field="leadTimeDays"
+          oninput="scheduleLeadTimeSave(this)"></td>
+        <td><input class="lt-input" type="number" min="0" step="1" value="${v.reorderQty}"
+          data-variant-id="${v.id}" data-field="reorderQty"
+          oninput="scheduleLeadTimeSave(this)"></td>
+        <td><span class="inv-status-badge ${badgeClass}">${badgeLabel}</span></td>
+      </tr>`;
+    }).join('');
+
+    return `<div class="inv-product-group">
+      <div class="inv-product-header">${escHtml(product.title)}</div>
+      <div style="overflow-x:auto;">
+        <table class="inv-table">
+          <thead><tr>
+            <th>Variant</th>
+            <th>SKU</th>
+            <th>Stock</th>
+            <th>Sold (28d)</th>
+            <th>Daily</th>
+            <th>Days Left</th>
+            <th>Proj. Days*</th>
+            <th>Lead Time (days)</th>
+            <th>Reorder Qty</th>
+            <th>Status</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Recommendations
+  const recsHtml = recommendations.length > 0
+    ? `<div class="inv-section">
+        <div class="section-title">Recommendations</div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          ${recommendations.map(r => `
+            <div class="inv-rec-card">
+              <div><span class="inv-rec-urgency u-${r.urgency}">${r.urgency}</span></div>
+              <div class="inv-rec-msg">${r.message}</div>
+              ${r.principle ? `<div class="inv-rec-book">Based on <em>${r.principle}</em> — ${r.author}</div>` : ''}
+            </div>`).join('')}
+        </div>
+      </div>`
+    : '';
+
+  document.getElementById('main').innerHTML = `
+    <div style="max-width:1120px;margin:0 auto;padding:24px 16px 60px;">
+      <div class="inv-section">
+        <div class="section-title">Inventory Overview <span class="m-source src-shopify" style="font-size:10px;padding:2px 7px;border-radius:4px;vertical-align:middle;">Shopify</span></div>
+        ${summaryHtml}
+      </div>
+      ${adSpendHtml}
+      ${goalHtml}
+      ${recsHtml}
+      <div class="inv-section">
+        <div class="section-title">Products &amp; Variants</div>
+        ${filterHtml}
+        <div id="inv-product-list">
+          ${products.length > 0 ? productGroupsHtml : '<div class="state-card"><div class="state-title">No active products found</div></div>'}
+        </div>
+        <div style="font-size:11px;color:var(--gray-500);margin-top:8px;">* projected at current ad spend trajectory</div>
+      </div>
+    </div>`;
+}
+
+// Escape HTML helper for inventory render
+function escHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// Debounced lead-time save
+const _ltTimers = {};
+function scheduleLeadTimeSave(inputEl) {
+  const variantId = inputEl.dataset.variantId;
+  if (!variantId) return;
+  clearTimeout(_ltTimers[variantId]);
+  _ltTimers[variantId] = setTimeout(async () => {
+    // Collect both fields for this variant
+    const ltInput  = document.querySelector(`.lt-input[data-variant-id="${variantId}"][data-field="leadTimeDays"]`);
+    const rqInput  = document.querySelector(`.lt-input[data-variant-id="${variantId}"][data-field="reorderQty"]`);
+    const leadTimeDays = parseInt(ltInput?.value) || 21;
+    const reorderQty   = parseInt(rqInput?.value) || 0;
+    try {
+      await fetch('/api/inventory/lead-times', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ [variantId]: { leadTimeDays, reorderQty } }),
+      });
+      // Recalculate row display
+      const row = document.querySelector(`tr[data-status][data-daily-vel]${ltInput ? '' : ''}`);
+      // Find the row containing these inputs
+      const tr = ltInput?.closest('tr');
+      if (tr) {
+        const inventory    = parseFloat(tr.dataset.inventory);
+        const dailyVel     = parseFloat(tr.dataset.dailyVel);
+        const projDailyVel = parseFloat(tr.dataset.projDailyVel);
+
+        const daysRemaining     = (!isNaN(inventory) && dailyVel > 0) ? inventory / dailyVel : null;
+        const projDaysRemaining = (!isNaN(inventory) && projDailyVel > 0) ? inventory / projDailyVel : null;
+
+        // Determine new status
+        let status;
+        if (!isNaN(inventory)) {
+          if (inventory === 0)                                               status = 'stockout';
+          else if (inventory < 10)                                           status = 'critical';
+          else if (daysRemaining !== null && daysRemaining <= leadTimeDays) status = 'reorder';
+          else if (daysRemaining !== null && daysRemaining <= 30)           status = 'warn';
+          else                                                                status = 'ok';
+        } else {
+          status = tr.dataset.status;
+        }
+
+        // Update data-lead-time
+        tr.dataset.leadTime = leadTimeDays;
+        tr.dataset.status   = status;
+
+        // Update days-left cell (column index 5)
+        const cells = tr.querySelectorAll('td');
+        if (cells[5] && daysRemaining !== null) {
+          const daysCls = daysRemaining <= leadTimeDays ? 'inv-days-crit' : daysRemaining <= 30 ? 'inv-days-warn' : 'inv-days-ok';
+          cells[5].innerHTML = `<span class="inv-days-num ${daysCls}">${daysRemaining.toFixed(1)}d</span>`;
+        }
+        // Update proj-days cell (column index 6)
+        if (cells[6] && projDaysRemaining !== null) {
+          cells[6].innerHTML = `<span class="inv-days-num">${projDaysRemaining.toFixed(1)}d</span>`;
+        }
+        // Update status badge cell (column index 9)
+        if (cells[9]) {
+          const badgeClass = { ok: 's-ok', warn: 's-warn', reorder: 's-reorder', critical: 's-critical', stockout: 's-stockout' }[status] || 's-ok';
+          const badgeLabel = { ok: 'OK', warn: 'Low', reorder: 'Reorder', critical: 'Critical', stockout: 'Stockout' }[status] || status;
+          cells[9].innerHTML = `<span class="inv-status-badge ${badgeClass}">${badgeLabel}</span>`;
+        }
+        // Update row class
+        tr.className = status === 'stockout' ? 'row-stockout' : status === 'critical' ? 'row-critical' : status === 'reorder' ? 'row-reorder' : '';
+      }
+    } catch (err) {
+      console.error('Lead time save failed:', err.message);
+    }
+  }, 600);
+}
+
+function filterInventoryTable(status, btn) {
+  // Update active button
+  document.querySelectorAll('.inv-filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  document.querySelectorAll('#inv-product-list tr[data-status]').forEach(tr => {
+    if (status === 'all') {
+      tr.style.display = '';
+    } else {
+      tr.style.display = tr.dataset.status === status ? '' : 'none';
+    }
+  });
+
+  // Hide product groups with no visible rows
+  document.querySelectorAll('.inv-product-group').forEach(group => {
+    const hasVisible = Array.from(group.querySelectorAll('tr[data-status]')).some(tr => tr.style.display !== 'none');
+    group.style.display = hasVisible ? '' : 'none';
+  });
+}
+
+loadOverview();
+</script>
+</body>
+</html>
