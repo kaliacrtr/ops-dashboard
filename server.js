@@ -1295,6 +1295,62 @@ app.post('/api/inventory/lead-times', express.json(), (req, res) => {
   }
 });
 
+// ── /api/waitlist-demand (Klaviyo back-in-stock signups by product + size) ────
+let _bisMetricId = null;
+async function getBisMetricId() {
+  if (_bisMetricId) return _bisMetricId;
+  const data = await klaviyoGet('/metrics/');
+  const m = (data.data || []).find(x => x.attributes?.name === 'Subscribed to Back in Stock');
+  _bisMetricId = m?.id || null;
+  return _bisMetricId;
+}
+
+app.get('/api/waitlist-demand', async (req, res) => {
+  if (!klaviyoReady()) return res.json({ success: false, error: 'Klaviyo not configured' });
+  try {
+    const metricId = await getBisMetricId();
+    if (!metricId) return res.json({ success: true, products: [], fetchedAt: new Date().toISOString() });
+
+    // Paginate the Subscribed-to-Back-in-Stock events. Dedupe by profile+variant so a
+    // repeat signup for the same size counts once, but the same person on two sizes
+    // still counts toward each size (between-sizes shoppers are real demand for both).
+    let url = `${KLAVIYO_BASE}/events/?filter=equals(metric_id,"${metricId}")&fields[event]=event_properties&page[size]=100`;
+    const seen = new Set();
+    const agg = {};
+    let pages = 0;
+    while (url && pages < 40) {
+      const r = await fetch(url, { headers: klaviyoHeaders() });
+      const json = await r.json();
+      if (json.errors) throw new Error(json.errors[0]?.detail || 'Klaviyo events error');
+      (json.data || []).forEach(ev => {
+        const p = ev.attributes?.event_properties || {};
+        const product = p.ProductName || 'Unknown';
+        const size = p.VariantName || '—';
+        const variantId = p.VariantId || size;
+        const profileId = ev.relationships?.profile?.data?.id || ev.id;
+        const key = profileId + '|' + variantId;
+        if (seen.has(key)) return;
+        seen.add(key);
+        agg[product] = agg[product] || {};
+        agg[product][size] = (agg[product][size] || 0) + 1;
+      });
+      url = json.links?.next || null;
+      pages++;
+    }
+
+    const products = Object.entries(agg).map(([title, sizes]) => ({
+      title,
+      total: Object.values(sizes).reduce((a, b) => a + b, 0),
+      sizes,
+    })).sort((a, b) => b.total - a.total);
+
+    res.json({ success: true, products, fetchedAt: new Date().toISOString() });
+  } catch (err) {
+    console.error('[Waitlist Demand]', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ── /api/recommendations ──────────────────────────────────────────────────────
 const RECS_SYSTEM = `You are a strategic business advisor for Bodycon the Brand — a fuller bust clothing brand with 60k+ Instagram followers, run solo by its founder. Your single mandate is helping her hit $100,000 in revenue this calendar year.
 

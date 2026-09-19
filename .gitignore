@@ -11,3 +11,6 @@ node_modules/
 
 # OS
 .DS_Store
+
+# Tax automation logs
+watax.log
