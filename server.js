@@ -21,7 +21,7 @@ const SHOPIFY_DOMAIN        = process.env.SHOPIFY_STORE_DOMAIN || '';
 const SHOPIFY_CLIENT_ID     = process.env.SHOPIFY_CLIENT_ID;
 const SHOPIFY_CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET;
 const SHOPIFY_API           = '2025-01';
-const SHOPIFY_SCOPES        = 'read_orders,read_products,read_inventory';
+const SHOPIFY_SCOPES        = 'read_orders,read_products,read_inventory,read_content,write_content';
 const SHOPIFY_REDIRECT      = `http://localhost:${PORT}/shopify/callback`;
 
 // Live token — read from process.env so it updates after OAuth without restart

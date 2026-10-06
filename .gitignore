@@ -14,3 +14,6 @@ node_modules/
 
 # Tax automation logs
 watax.log
+
+# Local backups (may contain unpublished/scheduled content) — never commit
+backups/
